@@ -1,0 +1,21 @@
+# Data, models and streaming state: never versioned (downloaded or generated)
+data/
+
+# Spark local artifacts
+spark-warehouse/
+metastore_db/
+derby.log
+*.crc
+
+# Python and tooling
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Local secrets and OS files
+.env
+.DS_Store
