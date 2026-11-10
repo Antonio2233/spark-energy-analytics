@@ -1,48 +1,8 @@
-from datetime import date, datetime
+from datetime import date
 
-from openpyxl import Workbook
+from helpers import build_mibgas_workbook as build_workbook
 
 from spain_electricity.sources import mibgas
-
-HEADER = [
-    "Trading day",
-    "Product",
-    "Place of delivery",
-    "Area",
-    "First Day Delivery",
-    "Last Day Delivery",
-    "Reference Price\n[EUR/MWh]",
-    "Auction Price\n[EUR/MWh]",
-    "Last Price\n[EUR/MWh]",
-    "Bid\n[EUR/MWh]",
-    "Ask\n[EUR/MWh]",
-    "Source",
-    "Maximum Price\n[EUR/MWh]",
-    "Minimum Price\n[EUR/MWh]",
-    "Price difference between purchases and sales\n[%]",
-    "Auction Volume Traded\xa0[MWh]",
-    "OTC Volume Registered [MWh]",
-    "Volume Traded\n[MWh]",
-]
-
-
-def trade(product, area, delivery, price):
-    day = datetime(2025, 12, 31)
-    return [day, product, "PVB", area, delivery, delivery, price, None, price, None, None, "M",
-            price, price, 0.7, 0.0, 0.0, 1000.0]  # fmt: skip
-
-
-def build_workbook(path):
-    workbook = Workbook()
-    workbook.active.title = "Disclaimer"
-    sheet = workbook.create_sheet("Trading Data PVB&VTP")
-    sheet.append(HEADER + [None, None])
-    sheet.append(trade("GDAES_D+1", "ES", datetime(2026, 1, 1), 28.59))
-    sheet.append(trade("GDAES_D+2", "ES", datetime(2026, 1, 2), 28.70))
-    sheet.append([None] * 20)
-    sheet.append(trade("GDAPT_D+1", "PT", datetime(2026, 1, 1), 28.75))
-    workbook.save(path)
-    return path
 
 
 def test_build_url_and_jobs(paths):
