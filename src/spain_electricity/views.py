@@ -3,8 +3,9 @@
 A missing dataset gives an empty frame with the expected columns, so a fresh clone can render.
 """
 
+import re
 from collections.abc import Sequence
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 
 import pandas as pd
 from pyspark.ml.feature import VectorAssembler
@@ -12,7 +13,9 @@ from pyspark.ml.stat import Correlation
 from pyspark.sql import SparkSession, Window
 from pyspark.sql import functions as F
 
+from spain_electricity.capture import REE_LANDING
 from spain_electricity.config import DataPaths
+from spain_electricity.storage import has_parquet
 
 DATASETS = ("generation", "demand_forecast", "market_price", "weather", "gas_price", "hourly_features")
 TIME_COLUMN = {"gas_price": "delivery_date", "hourly_features": "hour_utc"}
@@ -37,11 +40,14 @@ MIX_TECHNOLOGIES = {
 }
 LIVE_READING_COLUMNS = ("ts_utc", "demand_mw", "renewable_share")
 LIVE_WINDOW_COLUMNS = ("window_start", "avg_demand_mw", "max_demand_mw", "avg_renewable_share", "n_readings")
+STALE_MINUTES = 20
+# Live captures (and their catch-up backfills) are named after their UTC capture time.
+LIVE_CAPTURE_PREFIX = re.compile(r"^\d{8}T\d{6}Z")
 
 
 def _hourly(spark: SparkSession, paths: DataPaths):
     path = paths.processed / "hourly_features"
-    return spark.read.parquet(str(path)) if path.exists() else None
+    return spark.read.parquet(str(path)) if has_parquet(path) else None
 
 
 def data_status(spark: SparkSession, paths: DataPaths) -> pd.DataFrame:
@@ -49,17 +55,24 @@ def data_status(spark: SparkSession, paths: DataPaths) -> pd.DataFrame:
     records = []
     for dataset in DATASETS:
         path = paths.processed / dataset
-        if not path.exists():
+        if not has_parquet(path):
             records.append({"dataset": dataset, "rows": 0, "first": None, "last": None})
             continue
         column = TIME_COLUMN.get(dataset, "ts_utc")
+        # toPandas (Arrow) keeps the session's UTC wall time; Row objects would use the machine's zone.
         summary = (
             spark.read.parquet(str(path))
             .agg(F.count("*").alias("rows"), F.min(column).alias("first"), F.max(column).alias("last"))
-            .first()
+            .toPandas()
+            .iloc[0]
         )
         records.append(
-            {"dataset": dataset, "rows": summary.rows, "first": summary.first, "last": summary.last}
+            {
+                "dataset": dataset,
+                "rows": int(summary["rows"]),
+                "first": summary["first"],
+                "last": summary["last"],
+            }
         )
     status = pd.DataFrame(records, columns=["dataset", "rows", "first", "last"])
     # Dates (gas delivery days) and timestamps share these columns; make them one datetime type.
@@ -121,7 +134,7 @@ def correlation_matrix(
 def live_readings(spark: SparkSession, paths: DataPaths, last_hours: int = 6) -> pd.DataFrame:
     """Return the streamed 5-minute readings of the last ``last_hours`` before the newest one."""
     path = paths.stream_output / "readings"
-    if not last_stream_update(paths):
+    if not has_parquet(path):
         return pd.DataFrame(columns=list(LIVE_READING_COLUMNS))
     readings = spark.read.parquet(str(path)).select(*LIVE_READING_COLUMNS)
     newest = readings.agg(F.max("ts_utc")).first()[0]
@@ -141,16 +154,6 @@ def live_windows(spark: SparkSession, paths: DataPaths) -> pd.DataFrame:
     return latest.select(*LIVE_WINDOW_COLUMNS).orderBy(F.desc("window_start")).toPandas()
 
 
-def last_stream_update(paths: DataPaths) -> pd.Timestamp | None:
-    """Return when the streaming job last wrote new readings (UTC), or None if it never did."""
-    folder = paths.stream_output / "readings"
-    parts = list(folder.glob("*.parquet")) if folder.exists() else []
-    if not parts:
-        return None
-    newest = max(part.stat().st_mtime for part in parts)
-    return pd.Timestamp(datetime.fromtimestamp(newest, UTC))
-
-
 def minutes_since(moment: pd.Timestamp | None, now: datetime) -> float | None:
     """Return the minutes between ``moment`` (naive means UTC) and ``now``, or None."""
     if moment is None or pd.isna(moment):
@@ -159,3 +162,33 @@ def minutes_since(moment: pd.Timestamp | None, now: datetime) -> float | None:
     if moment.tzinfo is None:
         moment = moment.tz_localize("UTC")
     return (pd.Timestamp(now) - moment).total_seconds() / 60
+
+
+def stream_mode(paths: DataPaths) -> str:
+    """Return ``live``, ``replay`` or ``none`` from the newest file in the REE landing folder."""
+    folder = paths.landing / REE_LANDING
+    files = list(folder.glob("*.jsonp")) if folder.exists() else []
+    if not files:
+        return "none"
+    newest = max(files, key=lambda path: path.stat().st_mtime)
+    return "live" if LIVE_CAPTURE_PREFIX.match(newest.name) else "replay"
+
+
+def stale_warning(
+    paths: DataPaths, readings: pd.DataFrame, now: datetime, threshold_minutes: float = STALE_MINUTES
+) -> str | None:
+    """Return a warning when live readings are older than ``threshold_minutes``, else None.
+
+    The age is the newest reading's event time against ``now``: a stalled feed keeps answering with
+    the same readings, so the capture still lands files but no newer reading ever arrives. Replayed
+    history is old by design and never warns.
+    """
+    if stream_mode(paths) != "live" or readings.empty:
+        return None
+    age = minutes_since(readings["ts_utc"].max(), now)
+    if age is None or age <= threshold_minutes:
+        return None
+    return (
+        f"No new readings for {age:.0f} minutes: the REE real-time feed or the capture may be down. "
+        "Restart scripts/capture_realtime.py; it catches up missed days on start."
+    )

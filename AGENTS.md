@@ -52,7 +52,7 @@ Do not reopen them unless the team asks.
 | Gas price | MIBGAS `GDAES_D+1` (Spanish day-ahead) reference price, assigned to its first delivery day | The day-ahead product traded every day for the next day |
 | Holidays | The ten national holidays (nine fixed dates plus Good Friday), computed in `national_holidays.py` | Regional and moved holidays are out of scope for a national model |
 | Re-downloads | A file is fetched again while it was written on or before the end of its period plus `settle_days` (1; 7 for the Open-Meteo archive) | A file downloaded while its day or month was still open would otherwise stay partial |
-| Live staleness | The Live tab warns when the stream wrote no new reading for 20 minutes | Event times of replayed history are old by design |
+| Live staleness | In live mode (newest landed file is a timestamped capture) the Live tab warns when the newest reading's event time is more than 20 minutes old; replay never warns | A stalled feed keeps answering with the same readings, so files keep landing but no newer reading arrives; replayed history is old by design |
 | Replay vs live | Never mix replayed history and live captures in the same `data/stream` (use another `SPAIN_ELECTRICITY_DATA_DIR`, or clear `data/stream`) | Once live readings advance the watermark, older replayed readings are dropped as late |
 
 ## Open decisions

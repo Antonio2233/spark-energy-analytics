@@ -66,7 +66,6 @@ def fetch(
     sleep: Callable[[float], None] = time.sleep,
 ) -> None:
     """Download ``url`` to ``destination`` through a ``.part`` file, retrying on any failure."""
-    destination.parent.mkdir(parents=True, exist_ok=True)
     partial = destination.with_name(destination.name + ".part")
     last_problem = ""
     for attempt in range(1, retries + 1):
@@ -77,6 +76,7 @@ def fetch(
             elif validator is not None and not validator(response.content):
                 last_problem = "invalid payload"
             else:
+                destination.parent.mkdir(parents=True, exist_ok=True)
                 partial.write_bytes(response.content)
                 os.replace(partial, destination)
                 return

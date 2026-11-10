@@ -54,6 +54,13 @@ def test_fetch_retries_then_fails(tmp_path):
     assert len(session.urls) == 3
 
 
+def test_failed_fetch_creates_no_folder(tmp_path):
+    session = FakeSession([FakeResponse(400, b"{}")] * 3)
+    with pytest.raises(DownloadError):
+        fetch("u", tmp_path / "redata_demand" / "2025" / "a.json", session=session, retries=3, sleep=no_sleep)
+    assert not (tmp_path / "redata_demand").exists()
+
+
 def test_fetch_retries_on_request_exception(tmp_path):
     session = FakeSession([requests.ConnectionError("down"), FakeResponse(200, b"ok")])
     fetch("u", tmp_path / "a.json", session=session, sleep=no_sleep)

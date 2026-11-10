@@ -20,7 +20,6 @@ NO_STREAM = (
     "No streaming output yet: run scripts/run_stream.py together with "
     "scripts/replay_history.py (replay) or scripts/capture_realtime.py (live)"
 )
-STALE_MINUTES = 20
 # Validated categorical slots (dataviz reference palette), assigned in fixed order.
 LIGHT_SLOTS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
 DARK_SLOTS = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"]
@@ -121,62 +120,69 @@ with status_tab:
     st.dataframe(status, hide_index=True, width="stretch")
     st.caption(f"Data folder: {root}")
 
+
+def render_history(start, end) -> None:
+    """Render the History charts for a local date range."""
+    history = views.hourly_history(spark, paths, start, end)
+    demand = long_format(
+        history, "hour_utc", {"demand_mw": "Actual demand", "forecast_demand_mw": "REE forecast"}, "mw"
+    )
+    st.altair_chart(
+        line_chart(
+            demand,
+            "hour_utc",
+            "mw",
+            "series",
+            "Demand vs REE forecast",
+            "MW",
+            ["Actual demand", "REE forecast"],
+        ),
+        width="stretch",
+    )
+    mix = views.mix_history(spark, paths, start, end)
+    mix_chart = (
+        alt.Chart(mix, title="Generation mix (hourly mean)")
+        .mark_area()
+        .encode(
+            x=alt.X("hour_utc:T", title="Time (UTC)"),
+            y=alt.Y("mw:Q", stack=True, title="MW"),
+            color=alt.Color("technology:N", scale=color_scale(MIX_ORDER), sort=MIX_ORDER, title="Technology"),
+            order=alt.Order("technology_rank:Q"),
+            tooltip=["hour_utc:T", "technology:N", alt.Tooltip("mw:Q", format=",.0f")],
+        )
+        .transform_calculate(technology_rank=f"indexof({MIX_ORDER}, datum.technology)")
+        .properties(height=300)
+    )
+    st.altair_chart(mix_chart, width="stretch")
+    prices = long_format(
+        history, "hour_utc", {"spot_price_eur_mwh": "Spot market", "pvpc_eur_mwh": "PVPC"}, "eur_mwh"
+    )
+    st.altair_chart(
+        line_chart(
+            prices, "hour_utc", "eur_mwh", "series", "Electricity price", "€/MWh", ["Spot market", "PVPC"]
+        ),
+        width="stretch",
+    )
+    with st.expander("Show hourly data"):
+        st.dataframe(history, hide_index=True, width="stretch")
+
+
 with history_tab:
     if not has_history:
         st.info(NO_DATA)
     else:
         last_day = pd.Timestamp(hourly_row["last"]).date()
         first_day = pd.Timestamp(hourly_row["first"]).date()
-        start, end = st.date_input(
+        selection = st.date_input(
             "Local dates",
             value=(max(first_day, last_day - timedelta(days=6)), last_day),
             min_value=first_day,
             max_value=last_day,
         )
-        history = views.hourly_history(spark, paths, start, end)
-        demand = long_format(
-            history, "hour_utc", {"demand_mw": "Actual demand", "forecast_demand_mw": "REE forecast"}, "mw"
-        )
-        st.altair_chart(
-            line_chart(
-                demand,
-                "hour_utc",
-                "mw",
-                "series",
-                "Demand vs REE forecast",
-                "MW",
-                ["Actual demand", "REE forecast"],
-            ),
-            width="stretch",
-        )
-        mix = views.mix_history(spark, paths, start, end)
-        mix_chart = (
-            alt.Chart(mix, title="Generation mix (hourly mean)")
-            .mark_area()
-            .encode(
-                x=alt.X("hour_utc:T", title="Time (UTC)"),
-                y=alt.Y("mw:Q", stack=True, title="MW"),
-                color=alt.Color(
-                    "technology:N", scale=color_scale(MIX_ORDER), sort=MIX_ORDER, title="Technology"
-                ),
-                order=alt.Order("technology_rank:Q"),
-                tooltip=["hour_utc:T", "technology:N", alt.Tooltip("mw:Q", format=",.0f")],
-            )
-            .transform_calculate(technology_rank=f"indexof({MIX_ORDER}, datum.technology)")
-            .properties(height=300)
-        )
-        st.altair_chart(mix_chart, width="stretch")
-        prices = long_format(
-            history, "hour_utc", {"spot_price_eur_mwh": "Spot market", "pvpc_eur_mwh": "PVPC"}, "eur_mwh"
-        )
-        st.altair_chart(
-            line_chart(
-                prices, "hour_utc", "eur_mwh", "series", "Electricity price", "€/MWh", ["Spot market", "PVPC"]
-            ),
-            width="stretch",
-        )
-        with st.expander("Show hourly data"):
-            st.dataframe(history, hide_index=True, width="stretch")
+        if not isinstance(selection, tuple) or len(selection) < 2:
+            st.info("Pick an end date to show the range.")
+        else:
+            render_history(*selection)
 
 
 @st.fragment(run_every=timedelta(seconds=30))
@@ -186,20 +192,21 @@ def live_panel() -> None:
     if readings.empty:
         st.info(NO_STREAM)
         return
-    updated = views.last_stream_update(paths)
-    age = views.minutes_since(updated, datetime.now(UTC))
+    now = datetime.now(UTC)
+    mode = views.stream_mode(paths)
     latest = readings.iloc[-1]
     first, second, third = st.columns(3)
     first.metric("Latest reading (UTC)", pd.Timestamp(latest.ts_utc).strftime("%Y-%m-%d %H:%M"))
     second.metric("Demand", f"{latest.demand_mw:,.0f} MW")
     third.metric("Renewable share", f"{latest.renewable_share:.0%}")
-    if age is not None and age > STALE_MINUTES:
-        st.warning(
-            f"No new readings for {age:.0f} minutes: the real-time feed or the capture may be down. "
-            "Restart scripts/capture_realtime.py; it catches up missed days on start."
-        )
+    warning = views.stale_warning(paths, readings, now)
+    if warning:
+        st.warning(warning)
+    elif mode == "replay":
+        st.caption("Replaying downloaded history: event times are in the past by design.")
     else:
-        st.caption(f"Stream output updated {age:.0f} min ago" if age is not None else "")
+        age = views.minutes_since(latest.ts_utc, now)
+        st.caption(f"Newest reading is {age:.0f} min old" if age is not None else "")
     demand = readings.assign(series="Demand")
     st.altair_chart(
         line_chart(demand, "ts_utc", "demand_mw", "series", "Streamed 5-minute demand", "MW", ["Demand"]),

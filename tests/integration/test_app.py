@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 from helpers import copy_raw_fixtures
 from streamlit.testing.v1 import AppTest
@@ -25,3 +27,13 @@ def test_app_runs_with_ingested_fixtures(spark, monkeypatch, paths, fixtures_dir
     assert not app.exception
     assert not any("No data yet" in info.value for info in app.info)
     assert len(app.tabs) == 4
+
+
+@pytest.mark.integration
+def test_history_tolerates_a_single_selected_date(spark, monkeypatch, paths, fixtures_dir):
+    copy_raw_fixtures(fixtures_dir, paths)
+    run_ingest(spark, paths)
+    monkeypatch.setenv("SPAIN_ELECTRICITY_DATA_DIR", str(paths.root))
+    app = AppTest.from_file(APP, default_timeout=180).run()
+    app.date_input[0].set_value((date(2025, 10, 26),)).run()
+    assert not app.exception

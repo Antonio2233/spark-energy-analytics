@@ -27,6 +27,11 @@ def test_renewable_share(spark):
     assert features.add_renewable_share(df).first().renewable_share == 0.5
 
 
+def test_renewable_share_with_zero_demand_is_null(spark):
+    df = spark.createDataFrame([(100.0, 50.0, 50.0, 0.0)], ["wind_mw", "solar_mw", "hydro_mw", "demand_mw"])
+    assert features.add_renewable_share(df).first().renewable_share is None
+
+
 def test_national_weather_weighted(spark):
     rows = [
         ("madrid", ts("2025-01-15 10:00"), 10.0, 0.0, 5.0),

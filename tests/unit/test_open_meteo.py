@@ -24,14 +24,23 @@ def test_current_url_lists_every_city():
 
 
 def test_jobs_per_city_and_month(paths):
-    jobs = open_meteo.jobs(date(2025, 1, 20), date(2025, 2, 10), paths)
+    jobs = open_meteo.jobs(date(2025, 1, 20), date(2025, 2, 10), paths, today=date(2026, 11, 10))
     assert len(jobs) == len(CITIES) * 2
     madrid_january = next(job for job in jobs if "open_meteo_madrid_2025-01" in job.destination.name)
     assert (
         madrid_january.destination == paths.raw / "open_meteo" / "madrid" / "open_meteo_madrid_2025-01.json"
     )
-    assert "start_date=2025-01-20&end_date=2025-01-31" in madrid_january.url
+    # A month file always covers the whole month, whatever the requested range, so it is never partial.
+    assert "start_date=2025-01-01&end_date=2025-01-31" in madrid_january.url
+    assert madrid_january.covers_until == date(2025, 1, 31)
     assert madrid_january.settle_days == 7
+
+
+def test_jobs_current_month_stops_today(paths):
+    jobs = open_meteo.jobs(date(2026, 11, 1), date(2026, 11, 30), paths, today=date(2026, 11, 10))
+    madrid = next(job for job in jobs if "madrid" in job.destination.name)
+    assert "start_date=2026-11-01&end_date=2026-11-10" in madrid.url
+    assert madrid.covers_until == date(2026, 11, 10)
 
 
 def test_read_archive(spark, fixtures_dir):

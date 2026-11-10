@@ -60,12 +60,17 @@ def raw_path(paths: DataPaths, city: City, month: date) -> Path:
     return paths.raw / "open_meteo" / city.name / f"open_meteo_{city.name}_{month:%Y-%m}.json"
 
 
-def jobs(start: date, end: date, paths: DataPaths) -> list[DownloadJob]:
-    """Return one archive download job per city and month, clipped to ``start``..``end``."""
+def jobs(start: date, end: date, paths: DataPaths, today: date | None = None) -> list[DownloadJob]:
+    """Return one archive download job per city and month touched by ``start``..``end``.
+
+    Each file holds its whole month (clipped only to ``today``), so a narrow first range never
+    leaves a month file partial; the settle rule refreshes the current month until it is over.
+    """
+    today = today or date.today()
     result = []
     for city in CITIES.values():
         for month in month_starts(start, end):
-            first, last = max(month, start), min(month_end(month), end)
+            first, last = month, min(month_end(month), today)
             result.append(
                 DownloadJob(
                     build_archive_url(city, first, last),

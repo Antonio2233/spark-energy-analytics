@@ -13,6 +13,7 @@ from pyspark.sql import functions as F
 from spain_electricity.config import CITIES, LOCAL_TIMEZONE, City, DataPaths
 from spain_electricity.national_holidays import holidays_frame
 from spain_electricity.sources.ree_generation import RAW_TO_COLUMN
+from spain_electricity.storage import has_parquet
 
 GENERATION_COLUMNS = tuple(RAW_TO_COLUMN.values())
 RENEWABLE_COLUMNS = ("wind_mw", "solar_mw", "hydro_mw")
@@ -29,9 +30,9 @@ def hourly_mean(df: DataFrame, ts_col: str, value_cols: Sequence[str]) -> DataFr
 
 
 def add_renewable_share(df: DataFrame) -> DataFrame:
-    """Add ``renewable_share`` = (wind + solar + hydro) / demand."""
+    """Add ``renewable_share`` = (wind + solar + hydro) / demand; null when demand is 0 (ANSI mode)."""
     renewables = sum((F.col(column) for column in RENEWABLE_COLUMNS[1:]), F.col(RENEWABLE_COLUMNS[0]))
-    return df.withColumn("renewable_share", renewables / F.col("demand_mw"))
+    return df.withColumn("renewable_share", F.try_divide(renewables, F.col("demand_mw")))
 
 
 def national_weather(weather: DataFrame, cities: Mapping[str, City] = CITIES) -> DataFrame:
@@ -65,7 +66,7 @@ def add_calendar(df: DataFrame, holidays: DataFrame, ts_col: str = "hour_utc") -
 
 
 def _read_optional(spark: SparkSession, path: Path) -> DataFrame | None:
-    return spark.read.parquet(str(path)) if path.exists() else None
+    return spark.read.parquet(str(path)) if has_parquet(path) else None
 
 
 def _with_nulls(df: DataFrame, columns: Sequence[str]) -> DataFrame:
@@ -77,7 +78,7 @@ def _with_nulls(df: DataFrame, columns: Sequence[str]) -> DataFrame:
 def build_hourly_features(spark: SparkSession, paths: DataPaths) -> DataFrame:
     """Return one row per UTC hour joining generation, forecast, prices, weather, gas and calendar."""
     generation_path = paths.processed / "generation"
-    if not generation_path.exists():
+    if not has_parquet(generation_path):
         raise FileNotFoundError(f"{generation_path} is missing: run the ingestion first")
     table = add_renewable_share(
         hourly_mean(spark.read.parquet(str(generation_path)), "ts_utc", GENERATION_COLUMNS)

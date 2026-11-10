@@ -1,4 +1,3 @@
-import os
 from datetime import UTC, date, datetime
 
 import pandas as pd
@@ -120,14 +119,3 @@ def test_minutes_since():
     assert views.minutes_since(pd.Timestamp("2026-11-10 17:50"), now) == 10
     assert views.minutes_since(None, now) is None
     assert views.minutes_since(pd.NaT, now) is None
-
-
-def test_last_stream_update(paths):
-    assert views.last_stream_update(paths) is None
-    folder = paths.stream_output / "readings"
-    folder.mkdir(parents=True)
-    part = folder / "part-0000.snappy.parquet"
-    part.write_bytes(b"x")
-    stamp = datetime(2026, 11, 10, 17, 50, tzinfo=UTC).timestamp()
-    os.utime(part, (stamp, stamp))
-    assert views.last_stream_update(paths) == pd.Timestamp("2026-11-10 17:50", tz="UTC")
