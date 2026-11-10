@@ -12,7 +12,7 @@ time.tzset()
 import pytest  # noqa: E402
 
 from spain_electricity.config import DataPaths  # noqa: E402
-from spain_electricity.spark_session import get_spark  # noqa: E402
+from spain_electricity.spark_session import get_spark, stop_spark  # noqa: E402
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -22,7 +22,7 @@ def spark():
     """Return a small local SparkSession shared by every test."""
     session = get_spark("tests", "local[1]", 2)
     yield session
-    session.stop()
+    stop_spark()
 
 
 @pytest.fixture

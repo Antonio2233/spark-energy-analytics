@@ -6,6 +6,14 @@ def test_session_shuffle_partitions(spark):
     assert spark.conf.get("spark.sql.shuffle.partitions") == "2"
 
 
+def test_get_spark_keeps_existing_session_settings(spark):
+    from spain_electricity.spark_session import get_spark
+
+    again = get_spark("another-caller", "local[2]", 9)
+    assert again is spark
+    assert spark.conf.get("spark.sql.shuffle.partitions") == "2"
+
+
 def test_session_uses_arrow_for_pandas(spark):
     assert spark.conf.get("spark.sql.execution.arrow.pyspark.enabled") == "true"
 

@@ -10,7 +10,7 @@ import sys
 
 from spain_electricity.config import DataPaths
 from spain_electricity.pipeline import run_ingest
-from spain_electricity.spark_session import get_spark
+from spain_electricity.spark_session import get_spark, stop_spark
 
 logger = logging.getLogger("ingest")
 
@@ -23,7 +23,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         counts = run_ingest(spark, DataPaths.from_env())
     finally:
-        spark.stop()
+        stop_spark()
     if not counts:
         logger.warning("Nothing ingested: data/raw is empty. Run scripts/download_history.py first.")
         return 1

@@ -9,7 +9,7 @@ import argparse
 import logging
 
 from spain_electricity.config import DataPaths
-from spain_electricity.spark_session import get_spark
+from spain_electricity.spark_session import get_spark, stop_spark
 from spain_electricity.streaming import start_stream
 
 logger = logging.getLogger("run_stream")
@@ -39,7 +39,7 @@ def main(argv: list[str] | None = None) -> None:
         for query in queries:
             query.stop()
     finally:
-        spark.stop()
+        stop_spark()
 
 
 if __name__ == "__main__":
