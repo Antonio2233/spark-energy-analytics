@@ -112,6 +112,7 @@ def test_build_hourly_features(spark, paths):
     assert row.demand_mw == 200.0
     assert row.renewable_share == pytest.approx(3 * 200.0 / 200.0)
     assert row.forecast_demand_mw == 190.0
+    assert row.actual_demand_mw == 1.0
     assert row.spot_price_eur_mwh == pytest.approx(122.5)
     assert row.pvpc_eur_mwh == 150.0
     assert row.temperature_c == 8.0
@@ -126,6 +127,7 @@ def test_build_hourly_features_tolerates_missing_sources(spark, paths):
     row = features.build_hourly_features(spark, paths).first()
     assert row.demand_mw == 100.0
     assert row.spot_price_eur_mwh is None and row.temperature_c is None and row.gas_price_eur_mwh is None
+    assert row.actual_demand_mw is None and row.forecast_demand_mw is None
 
 
 def test_write_hourly_features(spark, paths):

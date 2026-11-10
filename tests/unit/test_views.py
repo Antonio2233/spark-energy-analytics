@@ -17,7 +17,7 @@ def write_hourly(spark, paths, rows):
     for column in GENERATION_COLUMNS:
         if column not in frame.columns:
             frame = frame.withColumn(column, frame.demand_mw / 10)
-    for column in ("forecast_demand_mw", "spot_price_eur_mwh", "pvpc_eur_mwh"):
+    for column in ("actual_demand_mw", "forecast_demand_mw", "spot_price_eur_mwh", "pvpc_eur_mwh"):
         frame = frame.withColumn(column, frame.demand_mw)
     frame.write.parquet(str(paths.processed / "hourly_features"))
 
@@ -60,6 +60,7 @@ def test_hourly_history_filters_dates(spark, paths):
     write_hourly(spark, paths, HOURLY_ROWS)
     history = views.hourly_history(spark, paths, date(2025, 1, 15), date(2025, 1, 15))
     assert len(history) == 2
+    assert "actual_demand_mw" in history.columns
 
 
 def test_mix_history_is_long(spark, paths):
@@ -119,3 +120,4 @@ def test_minutes_since():
     assert views.minutes_since(pd.Timestamp("2026-11-10 17:50"), now) == 10
     assert views.minutes_since(None, now) is None
     assert views.minutes_since(pd.NaT, now) is None
+

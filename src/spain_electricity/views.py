@@ -22,6 +22,7 @@ TIME_COLUMN = {"gas_price": "delivery_date", "hourly_features": "hour_utc"}
 HISTORY_COLUMNS = (
     "hour_utc",
     "demand_mw",
+    "actual_demand_mw",
     "forecast_demand_mw",
     "renewable_share",
     "spot_price_eur_mwh",

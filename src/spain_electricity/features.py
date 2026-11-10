@@ -18,6 +18,7 @@ from spain_electricity.storage import has_parquet
 GENERATION_COLUMNS = tuple(RAW_TO_COLUMN.values())
 RENEWABLE_COLUMNS = ("wind_mw", "solar_mw", "hydro_mw")
 WEATHER_COLUMNS = ("temperature_c", "shortwave_radiation_wm2", "wind_speed_100m_kmh")
+FORECAST_COLUMNS = ("actual_demand_mw", "forecast_demand_mw")
 PRICE_COLUMNS = {"spot": "spot_price_eur_mwh", "pvpc": "pvpc_eur_mwh"}
 HOLIDAY_YEARS = range(2012, 2036)
 
@@ -84,11 +85,13 @@ def build_hourly_features(spark: SparkSession, paths: DataPaths) -> DataFrame:
         hourly_mean(spark.read.parquet(str(generation_path)), "ts_utc", GENERATION_COLUMNS)
     )
 
+    # REData's actual demand travels with its forecast: the forecast predicts that series, which
+    # runs about 5% above the 5-minute feed's demand_mw (January 2025).
     forecast = _read_optional(spark, paths.processed / "demand_forecast")
     if forecast is None:
-        table = _with_nulls(table, ["forecast_demand_mw"])
+        table = _with_nulls(table, FORECAST_COLUMNS)
     else:
-        table = table.join(hourly_mean(forecast, "ts_utc", ["forecast_demand_mw"]), "hour_utc", "left")
+        table = table.join(hourly_mean(forecast, "ts_utc", FORECAST_COLUMNS), "hour_utc", "left")
 
     prices = _read_optional(spark, paths.processed / "market_price")
     if prices is None:

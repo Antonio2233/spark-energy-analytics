@@ -59,6 +59,7 @@ Do not reopen them unless the team asks.
 
 - Whether the mix gets its own model (regression of the renewable share on wind, radiation and hour) or only correlations and KMeans. The description given to the lecturer says the mix is explained with Spark ML.
 - Kafka: yes or no, in iteration 3.
+- Which demand the phase-2 model predicts: `demand_mw` (the 5-minute feed, the one streaming sees) or `actual_demand_mw` (REData `Real`, the series REE's forecast predicts). They differ by about 5% (see REData below), so the baseline comparison is only fair against the series the forecast predicts.
 
 ## Data sources
 
@@ -81,6 +82,7 @@ Checked on 2026-11-03 and 2026-11-10 with real downloads. Anything not checked i
 - **URL:** `https://apidatos.ree.es/es/datos/{category}/{widget}?start_date=YYYY-MM-DDTHH:MM&end_date=YYYY-MM-DDTHH:MM&time_trunc=hour`. No key.
 - **Format:** JSON with the series in `included[]` (sometimes nested in `included[].attributes.content[]`). Values are in `attributes.values[]` as `{value, percentage, datetime}`, with `datetime` carrying an offset (`2021-03-15T00:00:00.000+01:00`).
 - **`demanda/demanda-tiempo-real`:** series `Real`, `Prevista` and `Programada` (actual, forecast and scheduled), every 5 minutes (288 per day, checked on 2021-03-15 and 2026-11-03).
+- **`Real` is not the 5-minute feed's `dem`:** on January 2025 (n = 8,928 five-minute instants) `Real` averages 30,660 MW and the `dem` of `demanda.ree.es` 28,976 MW, 1,684 MW (about 5.5%) lower; `Prevista` minus `Real` averages −59 MW. They cover different systems: REData names its series "Demanda nacional en tiempo real" (national; field `data.type` of the stored response), while the 5-minute feed calls `demandaGeneracionPeninsula` (Peninsula only). That the whole gap is the Balearic and Canary Islands, Ceuta and Melilla is an inference from its size. The hourly table keeps both (`demand_mw` and `actual_demand_mw`), and REE's forecast is always compared with `actual_demand_mw`.
 - **`mercados/precios-mercados-tiempo-real`:**
   - `Precio mercado spot`: hourly in 2021 (24 values per day), 96 quarter-hours in 2025 and 2026. On 2025-01-15 the four quarters of every hour are identical (the hourly price repeated); on 2026-11-10 they differ. When the real quarter-hour price started is not checked (October 2025 is an inference).
   - `PVPC`: hourly in 2025 and 2026.

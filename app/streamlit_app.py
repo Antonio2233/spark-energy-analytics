@@ -125,7 +125,7 @@ def render_history(start, end) -> None:
     """Render the History charts for a local date range."""
     history = views.hourly_history(spark, paths, start, end)
     demand = long_format(
-        history, "hour_utc", {"demand_mw": "Actual demand", "forecast_demand_mw": "REE forecast"}, "mw"
+        history, "hour_utc", {"actual_demand_mw": "Actual demand", "forecast_demand_mw": "REE forecast"}, "mw"
     )
     st.altair_chart(
         line_chart(
