@@ -1,6 +1,7 @@
 """Test-only builders shared by unit and integration tests."""
 
 import shutil
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -57,3 +58,29 @@ def copy_raw_fixtures(fixtures_dir: Path, paths: DataPaths) -> None:
     for source in ("ree_generation", "redata_demand", "redata_price", "open_meteo"):
         shutil.copytree(fixtures_dir / source, paths.raw / source)
     build_mibgas_workbook(paths.raw / "mibgas" / "MIBGAS_Data_2025.xlsx")
+
+
+@dataclass
+class FakeResponse:
+    """A minimal stand-in for ``requests.Response``."""
+
+    status_code: int
+    content: bytes
+
+
+class FakeSession:
+    """Returns queued responses (or raises queued exceptions) and records requested URLs.
+
+    ``responses`` is a list consumed in order, or a callable ``url -> response`` for routing by URL.
+    """
+
+    def __init__(self, responses):
+        self.responses = responses if callable(responses) else list(responses)
+        self.urls = []
+
+    def get(self, url, timeout):
+        self.urls.append(url)
+        item = self.responses(url) if callable(self.responses) else self.responses.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item

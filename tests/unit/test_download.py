@@ -1,32 +1,11 @@
 import os
-from dataclasses import dataclass
 from datetime import date, datetime
 
 import pytest
 import requests
+from helpers import FakeResponse, FakeSession
 
 from spain_electricity.download import DownloadError, DownloadJob, download_all, fetch, should_fetch
-
-
-@dataclass
-class FakeResponse:
-    status_code: int
-    content: bytes
-
-
-class FakeSession:
-    """Returns queued responses (or raises queued exceptions) and records requested URLs."""
-
-    def __init__(self, responses):
-        self.responses = list(responses)
-        self.urls = []
-
-    def get(self, url, timeout):
-        self.urls.append(url)
-        item = self.responses.pop(0)
-        if isinstance(item, Exception):
-            raise item
-        return item
 
 
 def no_sleep(_seconds):
