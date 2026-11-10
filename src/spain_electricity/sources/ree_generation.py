@@ -40,7 +40,8 @@ PAYLOAD_SCHEMA = StructType(
             "valoresHorariosGeneracion",
             ArrayType(
                 StructType(
-                    [StructField("ts", StringType())] + [StructField(raw, DoubleType()) for raw in RAW_TO_COLUMN]
+                    [StructField("ts", StringType())]
+                    + [StructField(raw, DoubleType()) for raw in RAW_TO_COLUMN]
                 )
             ),
         )
@@ -73,7 +74,9 @@ def parse_payload(text_df: DataFrame, text_col: str = "value") -> DataFrame:
     """Explode JSONP documents into one row per 5-minute reading (works on streaming frames)."""
     other_columns = [name for name in text_df.columns if name != text_col]
     payload = F.from_json(F.regexp_extract(F.col(text_col), JSONP_PATTERN, 1), PAYLOAD_SCHEMA)
-    readings = text_df.select(*other_columns, F.explode(payload["valoresHorariosGeneracion"]).alias("reading"))
+    readings = text_df.select(
+        *other_columns, F.explode(payload["valoresHorariosGeneracion"]).alias("reading")
+    )
     return readings.select(
         *other_columns,
         F.col("reading.ts").alias("ts_label"),

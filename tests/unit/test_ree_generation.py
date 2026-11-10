@@ -17,7 +17,10 @@ def test_build_url():
 def test_jobs_layout(paths):
     jobs = ree_generation.jobs(date(2025, 1, 1), date(2025, 1, 3), paths)
     assert len(jobs) == 3
-    assert jobs[1].destination == paths.raw / "ree_generation" / "2025" / "01" / "ree_generation_2025-01-02.jsonp"
+    assert (
+        jobs[1].destination
+        == paths.raw / "ree_generation" / "2025" / "01" / "ree_generation_2025-01-02.jsonp"
+    )
     assert jobs[1].covers_until == date(2025, 1, 2)
     assert jobs[1].validator(b'cb({"valoresHorariosGeneracion":[]});')
     assert not jobs[1].validator(b"<html>error</html>")
@@ -37,7 +40,9 @@ def test_jobs_layout(paths):
 )
 def test_with_utc(spark, label, expected):
     df = spark.createDataFrame([(label,)], ["ts_label"])
-    row = ree_generation.with_utc(df).select(F.date_format("ts_utc", "yyyy-MM-dd HH:mm:ss").alias("t")).first()
+    row = (
+        ree_generation.with_utc(df).select(F.date_format("ts_utc", "yyyy-MM-dd HH:mm:ss").alias("t")).first()
+    )
     assert row.t == expected
     assert "ts_label" not in ree_generation.with_utc(df).columns
 
@@ -74,7 +79,9 @@ def test_read_raw_ignores_partial_files(spark, fixtures_dir, tmp_path):
 
 
 def test_ingest_writes_partitioned_parquet(spark, paths, fixtures_dir):
-    shutil.copytree(fixtures_dir / "ree_generation" / "2025" / "01", paths.raw / "ree_generation" / "2025" / "01")
+    shutil.copytree(
+        fixtures_dir / "ree_generation" / "2025" / "01", paths.raw / "ree_generation" / "2025" / "01"
+    )
     assert ree_generation.ingest(spark, paths) == 576
     written = spark.read.parquet(str(paths.processed / "generation"))
     assert {"year", "month", "ts_utc", "demand_mw"} <= set(written.columns)
