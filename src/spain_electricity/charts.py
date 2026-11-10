@@ -8,33 +8,27 @@ from dataclasses import dataclass
 import altair as alt
 import pandas as pd
 
+from spain_electricity import catalog
+
 DAY_FORMAT = "%a %d %b"
 HOUR_FORMAT = "%H:%M"
 TOOLTIP_TIME_FORMAT = "%a %d %b %H:%M"
 TOOLTIP_DAY_FORMAT = "%a %d %b %Y"
 
-VARIABLE_LABELS = {
-    "demand_mw": "Demand",
-    "temperature_c": "Temperature",
-    "wind_speed_100m_kmh": "Wind at 100 m",
-    "shortwave_radiation_wm2": "Solar radiation",
-    "renewable_share": "Renewable share",
-    "spot_price_eur_mwh": "Spot price",
-    "gas_price_eur_mwh": "Gas price",
-}
-# Color slot order of the mix: adjacent slots are the validated pairs.
-TECHNOLOGY_LABELS = {
-    "hydro": "Hydro",
-    "solar_pv": "Solar PV",
-    "wind": "Wind",
-    "solar_thermal": "Solar thermal",
-    "nuclear": "Nuclear",
-    "combined_cycle": "Combined cycle",
-    "coal": "Coal",
-    "cogeneration_other": "Cogeneration and other",
-}
+CORRELATION_VARIABLES = (
+    "demand_mw",
+    "temperature_c",
+    "wind_speed_100m_kmh",
+    "shortwave_radiation_wm2",
+    "renewable_share",
+    "spot_price_eur_mwh",
+    "gas_price_eur_mwh",
+)
+VARIABLE_LABELS = {key: catalog.label(key) for key in CORRELATION_VARIABLES}
+# Color slot order of the mix, taken from the catalog: adjacent slots are the validated pairs.
+TECHNOLOGY_LABELS = {entry.key: entry.label for entry in catalog.TECHNOLOGIES}
 WORKING_DAY = "Working day"
-DAY_OFF = "Weekend or holiday"
+DAY_OFF = catalog.label("day_type")
 
 
 @dataclass(frozen=True)

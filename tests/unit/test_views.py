@@ -128,3 +128,11 @@ def test_minutes_since():
     assert views.minutes_since(pd.Timestamp("2026-11-10 17:50"), now) == 10
     assert views.minutes_since(None, now) is None
     assert views.minutes_since(pd.NaT, now) is None
+
+
+def test_dataset_attributes_lists_columns_and_types(spark, paths):
+    assert views.dataset_attributes(spark, paths.processed / "hourly_features").empty
+    write_hourly(spark, paths, HOURLY_ROWS)
+    attributes = views.dataset_attributes(spark, paths.processed / "hourly_features").set_index("column")
+    assert attributes.loc["hour_utc", "type"] == "timestamp"
+    assert attributes.loc["is_weekend", "type"] == "boolean"

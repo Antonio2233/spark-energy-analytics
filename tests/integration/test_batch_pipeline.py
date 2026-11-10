@@ -2,7 +2,7 @@ import pytest
 from helpers import copy_raw_fixtures
 from pyspark.sql import functions as F
 
-from spain_electricity import pipeline
+from spain_electricity import catalog, pipeline, views
 
 
 @pytest.mark.integration
@@ -26,3 +26,12 @@ def test_batch_pipeline_from_raw_fixtures(spark, paths, fixtures_dir):
         F.count("gas_price_eur_mwh").alias("gas"),
     ).first()
     assert (coverage.forecast, coverage.spot, coverage.temperature, coverage.gas) == (25, 24, 47, 0)
+
+
+@pytest.mark.integration
+def test_every_ingested_column_is_described(spark, paths, fixtures_dir):
+    copy_raw_fixtures(fixtures_dir, paths)
+    pipeline.run_ingest(spark, paths)
+    for dataset in views.DATASETS:
+        for column in views.dataset_attributes(spark, paths.processed / dataset)["column"]:
+            assert catalog.attribute(column)[1], f"{dataset}.{column} has no description"

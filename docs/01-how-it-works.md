@@ -113,14 +113,15 @@ The watermark has a side effect: once the stream has seen a reading, anything mo
 uv run streamlit run app/streamlit_app.py
 ```
 
-Opens at <http://localhost:8501>. The app only reads: it aggregates the Parquet datasets with Spark (`views.py`) and draws them with Altair (`charts.py`). Times are UTC, and the charts follow Streamlit's light or dark theme.
+Opens at <http://localhost:8501>. The app only reads: it aggregates the Parquet datasets with Spark (`views.py`) and draws them with Altair (`charts.py`). What every series means, its unit and its source come from `catalog.py`, shown under each chart ("What these series are and where they come from") and in the About the data tab. Times are UTC, and the charts follow Streamlit's light or dark theme.
 
 | Tab | What you see | Fed by |
 |---|---|---|
-| Data status | Rows and time range of every processed dataset, with its source | `data/processed/` |
+| Data status | Rows and time range of every processed dataset, with its source and link; below, the attributes of each dataset (column, Spark type, unit and meaning), streaming outputs included | `data/processed/`, `data/stream/output/` |
 | History | Actual demand vs REE forecast, the generation mix as one line per technology (click a name in the legend to highlight it; hover lists every technology at that hour), and day-ahead price vs PVPC, for a range of local dates; the hourly table underneath | `hourly_features` |
 | Live | Latest reading, demand and renewable share; the last 6 hours of streamed 5-minute demand; the latest 15-minute windows. Refreshes every 30 seconds | `data/stream/output/` |
 | Analysis | Daily demand against national temperature, working days apart from weekends and holidays, with a quadratic trend; the correlation between hourly variables, one value per pair | `hourly_features` |
+| About the data | What every variable and generation technology is, its unit and its source, and the endpoint the project calls for each source | `catalog.py` |
 
 In live mode the Live tab warns when the newest reading is more than 20 minutes old, which means REE's feed or the capture has stalled. In replay mode it never warns, since replayed readings are old by design.
 

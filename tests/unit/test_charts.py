@@ -26,9 +26,9 @@ def _rows(spec: dict) -> list[dict]:
 def test_correlation_cells_keep_each_pair_once_with_readable_names():
     cells = charts.correlation_cells(_matrix())
     assert list(cells.itertuples(index=False, name=None)) == [
-        ("Temperature", "Demand", -0.42),
-        ("Spot price", "Demand", 0.46),
-        ("Spot price", "Temperature", 0.1),
+        ("Temperature", "Demand (5-min feed)", -0.42),
+        ("Day-ahead price", "Demand (5-min feed)", 0.46),
+        ("Day-ahead price", "Temperature", 0.1),
     ]
 
 

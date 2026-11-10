@@ -81,12 +81,13 @@ The stream keeps a 2-hour watermark. Once it has seen a reading, anything more t
 uv run streamlit run app/streamlit_app.py
 ```
 
-Opens at <http://localhost:8501>, with four tabs. All times are UTC.
+Opens at <http://localhost:8501>, with five tabs. All times are UTC. Under every chart, a folded section explains each series and links its source.
 
-- **Data status:** rows and time range of every processed dataset, with its source.
+- **Data status:** rows and time range of every processed dataset, with its source, and the attributes (columns) of each dataset.
 - **History:** actual demand vs REE's forecast (both from REData, so they measure the same demand), the generation mix (one line per technology), and day-ahead price vs PVPC.
 - **Live:** the streamed 5-minute demand and the 15-minute windows. Refreshes every 30 seconds, and warns in live mode when no new reading arrives for 20 minutes.
 - **Analysis:** daily demand against temperature (working days apart from weekends and holidays), and the correlation between hourly variables with its value on every cell.
+- **About the data:** what every variable and generation technology is, its unit, and where it comes from.
 
 ### Demo in three terminals
 
@@ -109,7 +110,7 @@ uv run pytest -m integration         # end-to-end Spark, streaming and UI tests
 
 ## Layout
 
-- `src/spain_electricity/`: package code (sources, features, capture, streaming, views for the UI data, charts for the UI charts).
+- `src/spain_electricity/`: package code (sources, features, capture, streaming, views for the UI data, charts for the UI charts, catalog for what each series means).
 - `scripts/`: command-line entry points.
 - `app/`: Streamlit UI.
 - `notebooks/`: thin analysis notebooks over the package.

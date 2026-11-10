@@ -6,6 +6,7 @@ A missing dataset gives an empty frame with the expected columns, so a fresh clo
 import re
 from collections.abc import Sequence
 from datetime import date, datetime
+from pathlib import Path
 
 import pandas as pd
 from pyspark.ml.feature import VectorAssembler
@@ -80,6 +81,16 @@ def data_status(spark: SparkSession, paths: DataPaths) -> pd.DataFrame:
     for column in ("first", "last"):
         status[column] = pd.to_datetime(status[column])
     return status
+
+
+def dataset_attributes(spark: SparkSession, path: Path) -> pd.DataFrame:
+    """Return the columns and Spark types of a Parquet dataset (empty when it is missing)."""
+    if not has_parquet(path):
+        return pd.DataFrame(columns=["column", "type"])
+    fields = spark.read.parquet(str(path)).schema.fields
+    return pd.DataFrame(
+        [(field.name, field.dataType.simpleString()) for field in fields], columns=["column", "type"]
+    )
 
 
 def hourly_history(spark: SparkSession, paths: DataPaths, start: date, end: date) -> pd.DataFrame:
