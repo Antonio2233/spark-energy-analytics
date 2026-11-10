@@ -11,9 +11,10 @@ def ts(text):
     return datetime.strptime(text, "%Y-%m-%d %H:%M")
 
 
-def write_hourly(spark, paths, rows):
+def write_hourly(spark, paths, rows, holidays=()):
     columns = ["hour_utc", "local_date", "is_weekend", "demand_mw", "temperature_c", "renewable_share"]
     frame = spark.createDataFrame(rows, columns)
+    frame = frame.withColumn("is_holiday", frame.local_date.isin(list(holidays)))
     for column in GENERATION_COLUMNS:
         if column not in frame.columns:
             frame = frame.withColumn(column, frame.demand_mw / 10)
@@ -79,6 +80,13 @@ def test_daily_demand_vs_temperature(spark, paths):
     assert bool(daily.loc[date(2025, 1, 18), "is_weekend"]) is True
 
 
+def test_daily_demand_vs_temperature_reports_holidays(spark, paths):
+    write_hourly(spark, paths, HOURLY_ROWS, holidays=[date(2025, 1, 15)])
+    daily = views.daily_demand_vs_temperature(spark, paths).set_index("local_date")
+    assert bool(daily.loc[date(2025, 1, 15), "is_holiday"]) is True
+    assert bool(daily.loc[date(2025, 1, 18), "is_holiday"]) is False
+
+
 def test_correlation_diagonal(spark, paths):
     assert views.correlation_matrix(spark, paths, ["demand_mw", "temperature_c"]).empty
     write_hourly(spark, paths, HOURLY_ROWS)
@@ -120,4 +128,3 @@ def test_minutes_since():
     assert views.minutes_since(pd.Timestamp("2026-11-10 17:50"), now) == 10
     assert views.minutes_since(None, now) is None
     assert views.minutes_since(pd.NaT, now) is None
-

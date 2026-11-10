@@ -7,11 +7,10 @@ Run with:
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import altair as alt
 import pandas as pd
 import streamlit as st
 
-from spain_electricity import views
+from spain_electricity import charts, views
 from spain_electricity.config import DataPaths
 from spain_electricity.spark_session import get_spark
 
@@ -20,28 +19,16 @@ NO_STREAM = (
     "No streaming output yet: run scripts/run_stream.py together with "
     "scripts/replay_history.py (replay) or scripts/capture_realtime.py (live)"
 )
-# Validated categorical slots (dataviz reference palette), assigned in fixed order.
-LIGHT_SLOTS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
-DARK_SLOTS = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"]
-MIX_ORDER = [
-    "hydro",
-    "solar_pv",
-    "wind",
-    "solar_thermal",
-    "nuclear",
-    "combined_cycle",
-    "coal",
-    "cogeneration_other",
-]
-CORRELATION_COLUMNS = [
-    "demand_mw",
-    "temperature_c",
-    "wind_speed_100m_kmh",
-    "shortwave_radiation_wm2",
-    "renewable_share",
-    "spot_price_eur_mwh",
-    "gas_price_eur_mwh",
-]
+DATASET_DESCRIPTIONS = {
+    "generation": "REE · demand and generation mix, every 5 minutes",
+    "demand_forecast": "REE REData · actual, forecast and scheduled demand",
+    "market_price": "REE REData · day-ahead market price and PVPC",
+    "weather": "Open-Meteo · hourly weather in five cities",
+    "gas_price": "MIBGAS · daily natural gas price (day-ahead)",
+    "hourly_features": "All of the above joined by hour: the input of the models",
+}
+CORRELATION_COLUMNS = list(charts.VARIABLE_LABELS)
+TIME_FORMAT = "ddd DD MMM YYYY, HH:mm"
 
 st.set_page_config(page_title="Spain electricity · Spark", layout="wide")
 
@@ -52,42 +39,10 @@ def spark_session():
     return get_spark("streamlit", "local[2]", 4)
 
 
-def slots() -> list[str]:
-    """Return the categorical slots for the active theme."""
+def chart_theme() -> charts.ChartTheme:
+    """Return the chart colors of the active Streamlit theme."""
     theme = getattr(getattr(st.context, "theme", None), "type", "light")
-    return DARK_SLOTS if theme == "dark" else LIGHT_SLOTS
-
-
-def color_scale(domain: list[str]) -> alt.Scale:
-    """Map series names to slots in fixed order."""
-    return alt.Scale(domain=domain, range=slots()[: len(domain)])
-
-
-def line_chart(data: pd.DataFrame, x: str, y: str, series: str, title: str, y_title: str, domain: list[str]):
-    """Return a multi-series line chart with a hover crosshair and tooltip."""
-    hover = alt.selection_point(fields=[x], nearest=True, on="pointerover", empty=False)
-    base = alt.Chart(data, title=title).encode(
-        x=alt.X(f"{x}:T", title="Time (UTC)"),
-        y=alt.Y(f"{y}:Q", title=y_title),
-        color=alt.Color(
-            f"{series}:N", scale=color_scale(domain), title=None, legend=alt.Legend(orient="top")
-        ),
-    )
-    lines = base.mark_line(strokeWidth=2)
-    points = (
-        base.mark_point(size=64, filled=True)
-        .encode(
-            opacity=alt.condition(hover, alt.value(1), alt.value(0)),
-            tooltip=[
-                alt.Tooltip(f"{x}:T", title="Time (UTC)"),
-                alt.Tooltip(f"{series}:N"),
-                alt.Tooltip(f"{y}:Q", format=",.1f"),
-            ],
-        )
-        .add_params(hover)
-    )
-    rule = alt.Chart(data).mark_rule(strokeWidth=1, opacity=0.4).encode(x=f"{x}:T").transform_filter(hover)
-    return alt.layer(lines, points, rule).properties(height=280)
+    return charts.theme_for(dark=theme == "dark")
 
 
 def long_format(frame: pd.DataFrame, x: str, columns: dict[str, str], value_name: str) -> pd.DataFrame:
@@ -108,66 +63,87 @@ def cached_status(_spark, data_root: str) -> pd.DataFrame:
 
 
 st.title("Spain electricity: demand, generation mix and price")
-st.caption("Red Eléctrica · Open-Meteo · MIBGAS — processed with Spark, shown with Streamlit")
+st.caption("Red Eléctrica · Open-Meteo · MIBGAS — processed with Spark, shown with Streamlit. Times are UTC.")
 status_tab, history_tab, live_tab, analysis_tab = st.tabs(["Data status", "History", "Live", "Analysis"])
 status = cached_status(spark, root)
 hourly_row = status.set_index("dataset").loc["hourly_features"]
 has_history = int(hourly_row["rows"]) > 0
 
 with status_tab:
+    st.caption("What Spark has ingested into data/processed: one Parquet dataset per source.")
     if int(status["rows"].sum()) == 0:
         st.info(NO_DATA)
-    st.dataframe(status, hide_index=True, width="stretch")
+    st.dataframe(
+        status.assign(source=status["dataset"].map(DATASET_DESCRIPTIONS))[
+            ["dataset", "source", "rows", "first", "last"]
+        ],
+        hide_index=True,
+        width="stretch",
+        column_config={
+            "dataset": "Dataset",
+            "source": "Source and content",
+            "rows": st.column_config.NumberColumn("Rows", format="localized"),
+            "first": st.column_config.DatetimeColumn("First (UTC)", format=TIME_FORMAT),
+            "last": st.column_config.DatetimeColumn("Last (UTC)", format=TIME_FORMAT),
+        },
+    )
     st.caption(f"Data folder: {root}")
 
 
 def render_history(start, end) -> None:
     """Render the History charts for a local date range."""
+    theme = chart_theme()
     history = views.hourly_history(spark, paths, start, end)
-    demand = long_format(
-        history, "hour_utc", {"actual_demand_mw": "Actual demand", "forecast_demand_mw": "REE forecast"}, "mw"
-    )
+    demand_series = {"actual_demand_mw": "Actual demand", "forecast_demand_mw": "REE forecast"}
     st.altair_chart(
-        line_chart(
-            demand,
-            "hour_utc",
-            "mw",
-            "series",
-            "Demand vs REE forecast",
-            "MW",
-            ["Actual demand", "REE forecast"],
+        charts.line_chart(
+            long_format(history, "hour_utc", demand_series, "mw"),
+            x="hour_utc",
+            y="mw",
+            title="Demand: actual vs REE forecast",
+            subtitle="Hourly means of REE's REData series, so both measure the same demand",
+            y_title="MW",
+            domain=list(demand_series.values()),
+            theme=theme,
         ),
         width="stretch",
     )
-    mix = views.mix_history(spark, paths, start, end)
-    mix_chart = (
-        alt.Chart(mix, title="Generation mix (hourly mean)")
-        .mark_area()
-        .encode(
-            x=alt.X("hour_utc:T", title="Time (UTC)"),
-            y=alt.Y("mw:Q", stack=True, title="MW"),
-            color=alt.Color("technology:N", scale=color_scale(MIX_ORDER), sort=MIX_ORDER, title="Technology"),
-            order=alt.Order("technology_rank:Q"),
-            tooltip=["hour_utc:T", "technology:N", alt.Tooltip("mw:Q", format=",.0f")],
-        )
-        .transform_calculate(technology_rank=f"indexof({MIX_ORDER}, datum.technology)")
-        .properties(height=300)
-    )
-    st.altair_chart(mix_chart, width="stretch")
-    prices = long_format(
-        history, "hour_utc", {"spot_price_eur_mwh": "Spot market", "pvpc_eur_mwh": "PVPC"}, "eur_mwh"
-    )
+    st.altair_chart(charts.mix_chart(views.mix_history(spark, paths, start, end), theme), width="stretch")
+    price_series = {"spot_price_eur_mwh": "Day-ahead market", "pvpc_eur_mwh": "PVPC (regulated tariff)"}
     st.altair_chart(
-        line_chart(
-            prices, "hour_utc", "eur_mwh", "series", "Electricity price", "€/MWh", ["Spot market", "PVPC"]
+        charts.line_chart(
+            long_format(history, "hour_utc", price_series, "eur_mwh"),
+            x="hour_utc",
+            y="eur_mwh",
+            title="Electricity price",
+            subtitle="Wholesale day-ahead price and the regulated consumer price, hourly means",
+            y_title="€/MWh",
+            domain=list(price_series.values()),
+            theme=theme,
+            value_format=",.1f",
         ),
         width="stretch",
     )
     with st.expander("Show hourly data"):
-        st.dataframe(history, hide_index=True, width="stretch")
+        st.dataframe(
+            history.round({"demand_mw": 0, "actual_demand_mw": 0, "forecast_demand_mw": 0}),
+            hide_index=True,
+            width="stretch",
+            column_config={
+                "hour_utc": st.column_config.DatetimeColumn("Hour (UTC)", format=TIME_FORMAT),
+                "demand_mw": st.column_config.NumberColumn("Demand, 5-min feed (MW)", format="localized"),
+                "actual_demand_mw": st.column_config.NumberColumn("Demand, REData (MW)", format="localized"),
+                "forecast_demand_mw": st.column_config.NumberColumn("REE forecast (MW)", format="localized"),
+                "renewable_share": st.column_config.NumberColumn("Renewable share", format="percent"),
+                "spot_price_eur_mwh": st.column_config.NumberColumn("Day-ahead (€/MWh)", format="%.2f"),
+                "pvpc_eur_mwh": st.column_config.NumberColumn("PVPC (€/MWh)", format="%.2f"),
+                "temperature_c": st.column_config.NumberColumn("Temperature (°C)", format="%.1f"),
+            },
+        )
 
 
 with history_tab:
+    st.caption("Hourly history from the batch pipeline (scripts/ingest.py). Pick a range of local dates.")
     if not has_history:
         st.info(NO_DATA)
     else:
@@ -196,7 +172,7 @@ def live_panel() -> None:
     mode = views.stream_mode(paths)
     latest = readings.iloc[-1]
     first, second, third = st.columns(3)
-    first.metric("Latest reading (UTC)", pd.Timestamp(latest.ts_utc).strftime("%Y-%m-%d %H:%M"))
+    first.metric("Latest reading (UTC)", pd.Timestamp(latest.ts_utc).strftime("%a %d %b %H:%M"))
     second.metric("Demand", f"{latest.demand_mw:,.0f} MW")
     third.metric("Renewable share", f"{latest.renewable_share:.0%}")
     warning = views.stale_warning(paths, readings, now)
@@ -207,66 +183,58 @@ def live_panel() -> None:
     else:
         age = views.minutes_since(latest.ts_utc, now)
         st.caption(f"Newest reading is {age:.0f} min old" if age is not None else "")
-    demand = readings.assign(series="Demand")
     st.altair_chart(
-        line_chart(demand, "ts_utc", "demand_mw", "series", "Streamed 5-minute demand", "MW", ["Demand"]),
+        charts.line_chart(
+            readings.assign(series="Demand"),
+            x="ts_utc",
+            y="demand_mw",
+            title="Streamed demand, every 5 minutes",
+            subtitle="The last 6 hours that Spark Structured Streaming has processed",
+            y_title="MW",
+            domain=["Demand"],
+            theme=chart_theme(),
+            time_format=charts.HOUR_FORMAT,
+        ),
         width="stretch",
     )
-    st.dataframe(views.live_windows(spark, paths).head(24), hide_index=True, width="stretch")
+    st.markdown("**15-minute windows** computed by the stream (newest first)")
+    windows = views.live_windows(spark, paths).head(24)
+    st.dataframe(
+        windows.round({"avg_demand_mw": 0, "max_demand_mw": 0}),
+        hide_index=True,
+        width="stretch",
+        column_config={
+            "window_start": st.column_config.DatetimeColumn("Window start (UTC)", format=TIME_FORMAT),
+            "avg_demand_mw": st.column_config.NumberColumn("Mean demand (MW)", format="localized"),
+            "max_demand_mw": st.column_config.NumberColumn("Peak demand (MW)", format="localized"),
+            "avg_renewable_share": st.column_config.NumberColumn("Renewable share", format="percent"),
+            "n_readings": st.column_config.NumberColumn("Readings (of 3)"),
+        },
+    )
 
 
 with live_tab:
+    st.caption(
+        "Output of scripts/run_stream.py: Spark reads each file that lands in data/stream/landing "
+        "and updates these results."
+    )
     live_panel()
 
 with analysis_tab:
+    st.caption("First look at what drives demand and price, over the whole hourly table.")
     if not has_history:
         st.info(NO_DATA)
     else:
+        theme = chart_theme()
         daily = views.daily_demand_vs_temperature(spark, paths).dropna()
-        daily["day_type"] = daily["is_weekend"].map({True: "Weekend", False: "Weekday"})
-        scatter = (
-            alt.Chart(daily, title="Daily demand vs national temperature")
-            .mark_circle(size=64, opacity=0.85)
-            .encode(
-                x=alt.X("temperature_c:Q", title="Mean temperature (°C)"),
-                y=alt.Y("demand_mw:Q", title="Mean demand (MW)", scale=alt.Scale(zero=False)),
-                color=alt.Color(
-                    "day_type:N",
-                    scale=color_scale(["Weekday", "Weekend"]),
-                    title=None,
-                    legend=alt.Legend(orient="top"),
-                ),
-                tooltip=[
-                    "local_date:T",
-                    alt.Tooltip("temperature_c:Q", format=".1f"),
-                    alt.Tooltip("demand_mw:Q", format=",.0f"),
-                ],
-            )
-            .properties(height=320)
-        )
-        st.altair_chart(scatter, width="stretch")
+        st.altair_chart(charts.demand_temperature_scatter(daily, theme), width="stretch")
         matrix = views.correlation_matrix(spark, paths, CORRELATION_COLUMNS)
         if matrix.empty:
             st.info("Not enough complete hours for a correlation matrix yet.")
         else:
-            cells = matrix.reset_index(names="row").melt(
-                id_vars="row", var_name="column", value_name="pearson_r"
-            )
-            heatmap = (
-                alt.Chart(cells, title="Pearson correlation (hourly)")
-                .mark_rect()
-                .encode(
-                    x=alt.X("column:N", sort=CORRELATION_COLUMNS, title=None),
-                    y=alt.Y("row:N", sort=CORRELATION_COLUMNS, title=None),
-                    color=alt.Color(
-                        "pearson_r:Q",
-                        scale=alt.Scale(domain=[-1, 0, 1], range=["#e34948", "#f0efec", "#2a78d6"]),
-                        title="Pearson r",
-                    ),
-                    tooltip=["row:N", "column:N", alt.Tooltip("pearson_r:Q", format=".2f")],
-                )
-                .properties(height=360)
-            )
-            st.altair_chart(heatmap, width="stretch")
+            st.altair_chart(charts.correlation_heatmap(matrix, theme), width="stretch")
             with st.expander("Show correlation table"):
-                st.dataframe(matrix.round(2), width="stretch")
+                labels = [charts.VARIABLE_LABELS[column] for column in CORRELATION_COLUMNS]
+                st.dataframe(
+                    matrix.set_axis(labels, axis=0).set_axis(labels, axis=1).round(2), width="stretch"
+                )

@@ -104,14 +104,15 @@ def mix_history(spark: SparkSession, paths: DataPaths, start: date, end: date) -
 
 
 def daily_demand_vs_temperature(spark: SparkSession, paths: DataPaths) -> pd.DataFrame:
-    """Return mean demand and mean national temperature per local day."""
+    """Return mean demand, mean national temperature and the day type per local day."""
     hourly = _hourly(spark, paths)
     if hourly is None:
-        return pd.DataFrame(columns=["local_date", "demand_mw", "temperature_c", "is_weekend"])
+        return pd.DataFrame(columns=["local_date", "demand_mw", "temperature_c", "is_weekend", "is_holiday"])
     daily = hourly.groupBy("local_date").agg(
         F.avg("demand_mw").alias("demand_mw"),
         F.avg("temperature_c").alias("temperature_c"),
         F.max("is_weekend").alias("is_weekend"),
+        F.max("is_holiday").alias("is_holiday"),
     )
     return daily.orderBy("local_date").toPandas()
 

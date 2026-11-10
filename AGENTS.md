@@ -150,7 +150,8 @@ final_project/
 │   ├── pipeline.py           what the CLIs download and ingest
 │   ├── capture.py            live capture, catch-up after an outage, replay
 │   ├── streaming.py          Structured Streaming queries
-│   └── views.py              Spark aggregations for the UI and notebooks
+│   ├── views.py              Spark aggregations for the UI and notebooks
+│   └── charts.py             Altair charts for the UI: readable names, formatted axes, light and dark colors
 ├── tests/
 │   ├── conftest.py, helpers.py
 │   ├── unit/
@@ -223,7 +224,7 @@ Phase 2 adds `models.py` (Spark ML pipelines).
 - **Logging:** the standard `logging` module, never `print` in the package.
 - **Small functions:** read, transform and write in separate functions, so that each can be tested.
 - **Thin notebooks:** they import from the package and define no logic that is not in `src/`.
-- **Charts:** always with a legend (or a color-bar label on heatmaps).
+- **Charts:** always with a legend (or a color-bar label on heatmaps). UI charts are built in `charts.py`, with readable variable names (`VARIABLE_LABELS`, `TECHNOLOGY_LABELS`) and horizontal axis labels.
 
 ## Tests
 
