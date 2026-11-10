@@ -1,11 +1,18 @@
 """Shared pytest fixtures: one local SparkSession per test session, fixture paths and data paths."""
 
+import os
+import time
 from pathlib import Path
 
-import pytest
+# PySpark converts naive Python datetimes with the process time zone; run tests in UTC so that a
+# naive datetime in a test means the same instant as the UTC Spark session displays.
+os.environ["TZ"] = "UTC"
+time.tzset()
 
-from spain_electricity.config import DataPaths
-from spain_electricity.spark_session import get_spark
+import pytest  # noqa: E402
+
+from spain_electricity.config import DataPaths  # noqa: E402
+from spain_electricity.spark_session import get_spark  # noqa: E402
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
