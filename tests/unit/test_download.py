@@ -1,5 +1,6 @@
+import os
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 import requests
@@ -32,14 +33,31 @@ def no_sleep(_seconds):
     return None
 
 
-def test_should_fetch_rules(tmp_path):
-    existing = tmp_path / "f.json"
-    existing.write_text("{}")
-    today = date(2026, 11, 10)
-    assert should_fetch(tmp_path / "missing.json", date(2025, 1, 31), today)
-    assert not should_fetch(existing, date(2025, 1, 31), today)
-    assert should_fetch(existing, date(2026, 11, 9), today)
-    assert should_fetch(existing, date(2026, 11, 10), today)
+def written_on(path, day):
+    path.write_text("{}")
+    stamp = datetime(day.year, day.month, day.day, 12).timestamp()
+    os.utime(path, (stamp, stamp))
+    return path
+
+
+def test_should_fetch_missing_file(tmp_path):
+    assert should_fetch(tmp_path / "missing.json", date(2025, 1, 31))
+
+
+def test_should_fetch_skips_settled_file(tmp_path):
+    assert not should_fetch(written_on(tmp_path / "f", date(2025, 2, 5)), date(2025, 1, 31))
+    assert not should_fetch(written_on(tmp_path / "g", date(2025, 2, 2)), date(2025, 1, 31))
+
+
+def test_should_fetch_refreshes_file_written_before_period_settled(tmp_path):
+    assert should_fetch(written_on(tmp_path / "f", date(2025, 1, 31)), date(2025, 1, 31))
+    assert should_fetch(written_on(tmp_path / "g", date(2025, 2, 1)), date(2025, 1, 31))
+
+
+def test_should_fetch_respects_settle_days(tmp_path):
+    path = written_on(tmp_path / "f", date(2025, 2, 3))
+    assert should_fetch(path, date(2025, 1, 31), settle_days=7)
+    assert not should_fetch(path, date(2025, 1, 31), settle_days=1)
 
 
 def test_fetch_is_atomic(tmp_path):
@@ -82,7 +100,7 @@ def test_download_all_continues_after_failure(tmp_path):
         DownloadJob("bad", tmp_path / "1", date(2025, 1, 1)),
         DownloadJob("good", tmp_path / "2", date(2025, 1, 2)),
     ]
-    report = download_all(jobs, session=session, pause_seconds=0, today=date(2026, 11, 10), sleep=no_sleep)
+    report = download_all(jobs, session=session, pause_seconds=0, sleep=no_sleep)
     assert report.failed == ["bad"]
     assert report.fetched == 1
     assert (tmp_path / "2").read_bytes() == b"ok"
@@ -95,7 +113,7 @@ def test_download_all_skips_complete_files(tmp_path):
         DownloadJob("old-period", tmp_path / "1", date(2025, 1, 1)),
         DownloadJob("recent-period", tmp_path / "2", date(2026, 11, 10)),
     ]
-    report = download_all(jobs, session=session, pause_seconds=0, today=date(2026, 11, 10), sleep=no_sleep)
+    report = download_all(jobs, session=session, pause_seconds=0, sleep=no_sleep)
     assert report.skipped == 1 and report.fetched == 1
     assert session.urls == ["recent-period"]
     assert (tmp_path / "1").read_bytes() == b"old"

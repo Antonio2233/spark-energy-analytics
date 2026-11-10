@@ -8,7 +8,7 @@ import os
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import requests
@@ -30,6 +30,7 @@ class DownloadJob:
     destination: Path
     covers_until: date
     validator: Callable[[bytes], bool] | None = None
+    settle_days: int = 1
 
 
 @dataclass
@@ -41,9 +42,16 @@ class DownloadReport:
     failed: list[str] = field(default_factory=list)
 
 
-def should_fetch(destination: Path, covers_until: date, today: date) -> bool:
-    """Return True when the file is missing or may still be incomplete (period ends yesterday or later)."""
-    return not destination.exists() or covers_until >= today - timedelta(days=1)
+def should_fetch(destination: Path, covers_until: date, settle_days: int = 1) -> bool:
+    """Return True when the file is missing or was written before its period settled.
+
+    A period settles ``settle_days`` after ``covers_until``; a file written on or before that
+    day may be incomplete (for example, today's file downloaded during the day).
+    """
+    if not destination.exists():
+        return True
+    written_on = datetime.fromtimestamp(destination.stat().st_mtime).date()
+    return written_on <= covers_until + timedelta(days=settle_days)
 
 
 def fetch(
@@ -86,15 +94,13 @@ def download_all(
     *,
     session: requests.Session | None = None,
     pause_seconds: float = 1.0,
-    today: date | None = None,
     sleep: Callable[[float], None] = time.sleep,
 ) -> DownloadReport:
-    """Run every job, skipping complete files and carrying on after failures."""
+    """Run every job, skipping settled files and carrying on after failures."""
     session = session or _default_session()
-    today = today or date.today()
     report = DownloadReport()
     for job in jobs:
-        if not should_fetch(job.destination, job.covers_until, today):
+        if not should_fetch(job.destination, job.covers_until, job.settle_days):
             report.skipped += 1
             continue
         try:
