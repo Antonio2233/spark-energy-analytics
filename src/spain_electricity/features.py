@@ -16,7 +16,8 @@ from spain_electricity.sources.ree_generation import RAW_TO_COLUMN
 from spain_electricity.storage import has_parquet
 
 GENERATION_COLUMNS = tuple(RAW_TO_COLUMN.values())
-RENEWABLE_COLUMNS = ("wind_mw", "solar_mw", "hydro_mw")
+# Solar counts as PV + thermal: REE's total solar field (solar_mw) stops matching their sum in December 2025.
+RENEWABLE_COLUMNS = ("wind_mw", "solar_pv_mw", "solar_thermal_mw", "hydro_mw")
 WEATHER_COLUMNS = ("temperature_c", "shortwave_radiation_wm2", "wind_speed_100m_kmh")
 FORECAST_COLUMNS = ("actual_demand_mw", "forecast_demand_mw")
 PRICE_COLUMNS = {"spot": "spot_price_eur_mwh", "pvpc": "pvpc_eur_mwh"}
@@ -31,7 +32,7 @@ def hourly_mean(df: DataFrame, ts_col: str, value_cols: Sequence[str]) -> DataFr
 
 
 def add_renewable_share(df: DataFrame) -> DataFrame:
-    """Add ``renewable_share`` = (wind + solar + hydro) / demand; null when demand is 0 (ANSI mode)."""
+    """Add ``renewable_share`` = (wind + solar PV + solar thermal + hydro) / demand; null when demand is 0."""
     renewables = sum((F.col(column) for column in RENEWABLE_COLUMNS[1:]), F.col(RENEWABLE_COLUMNS[0]))
     return df.withColumn("renewable_share", F.try_divide(renewables, F.col("demand_mw")))
 

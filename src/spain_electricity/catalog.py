@@ -77,8 +77,8 @@ VARIABLES = (
         "Actual demand (REData)",
         "MW",
         "National demand as REData publishes it ('Demanda nacional en tiempo real', series Real). It is the "
-        "series REE's forecast predicts. It runs about 5% above the peninsular feed; the gap matches the "
-        "demand of the Balearic and Canary Islands, Ceuta and Melilla.",
+        "series REE's national forecast predicts. It runs about 5% above the peninsular feed; that the gap "
+        "is the demand of the Balearic and Canary Islands, Ceuta and Melilla is an inference from its size.",
         REDATA,
     ),
     Entry(
@@ -94,16 +94,17 @@ VARIABLES = (
         "renewable_share",
         "Renewable share",
         "%",
-        "Share of demand covered by wind, solar and hydro in the same hour: (wind + solar + hydro) / demand. "
-        "Computed in this project from the 5-minute feed.",
+        "Share of demand covered by wind, solar and hydro in the same hour: (wind + solar PV + solar "
+        "thermal + hydro) / demand. Computed in this project from the 5-minute feed.",
         REE_FEED,
     ),
     Entry(
         "spot_price_eur_mwh",
         "Day-ahead price",
         "€/MWh",
-        "Wholesale price of the day-ahead electricity market in Spain (REData 'Precio mercado spot'). "
-        "Hourly until 2025 and quarter-hourly after it; an hourly value is the mean.",
+        "Wholesale price of the day-ahead electricity market in Spain (REData 'Precio mercado spot'). Until "
+        "September 2025 the four quarters of an hour repeat the hourly price; from October 2025 they "
+        "differ in most hours. An hourly value is the mean of its quarters.",
         REDATA,
     ),
     Entry(
@@ -250,7 +251,12 @@ ATTRIBUTES = {
     "city": ("", "City of the weather point: madrid, barcelona, valencia, seville or bilbao."),
     "delivery_date": ("", "Day the gas is delivered, which is the day its price applies to."),
     "scheduled_demand_mw": ("MW", "Demand scheduled in the market programmes (REData series Programada)."),
-    "solar_mw": ("MW", "Total solar generation: solar PV plus solar thermal."),
+    "solar_mw": (
+        "MW",
+        "REE's total solar field (sol). It equals solar PV plus solar thermal until November 2025 and falls "
+        "below their sum from December 2025 (by 2,235 MW on average in June 2026), for reasons not checked; "
+        "the renewable share uses PV plus thermal instead.",
+    ),
     "net_interchange_mw": (
         "MW",
         "Net balance of the exchanges with neighbouring systems. Its sign convention has not been checked.",

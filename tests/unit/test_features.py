@@ -22,13 +22,23 @@ def test_hourly_mean_is_mean_not_sum(spark):
     assert result[0].hour_utc == ts("2025-01-15 10:00")
 
 
+SHARE_COLUMNS = ["wind_mw", "solar_mw", "solar_pv_mw", "solar_thermal_mw", "hydro_mw", "demand_mw"]
+
+
 def test_renewable_share(spark):
-    df = spark.createDataFrame([(100.0, 50.0, 50.0, 400.0)], ["wind_mw", "solar_mw", "hydro_mw", "demand_mw"])
+    df = spark.createDataFrame([(100.0, 50.0, 40.0, 10.0, 50.0, 400.0)], SHARE_COLUMNS)
+    assert features.add_renewable_share(df).first().renewable_share == 0.5
+
+
+def test_renewable_share_counts_solar_as_pv_plus_thermal(spark):
+    # From December 2025 REE's total solar field (sol) no longer equals PV + thermal (n = 616,032
+    # readings, 2021-2026): the share must keep one definition across the whole history.
+    df = spark.createDataFrame([(100.0, 0.0, 40.0, 10.0, 50.0, 400.0)], SHARE_COLUMNS)
     assert features.add_renewable_share(df).first().renewable_share == 0.5
 
 
 def test_renewable_share_with_zero_demand_is_null(spark):
-    df = spark.createDataFrame([(100.0, 50.0, 50.0, 0.0)], ["wind_mw", "solar_mw", "hydro_mw", "demand_mw"])
+    df = spark.createDataFrame([(100.0, 50.0, 40.0, 10.0, 50.0, 0.0)], SHARE_COLUMNS)
     assert features.add_renewable_share(df).first().renewable_share is None
 
 
@@ -110,7 +120,7 @@ def test_build_hourly_features(spark, paths):
     row = features.build_hourly_features(spark, paths).first()
     assert row.hour_utc == ts("2025-01-15 10:00")
     assert row.demand_mw == 200.0
-    assert row.renewable_share == pytest.approx(3 * 200.0 / 200.0)
+    assert row.renewable_share == pytest.approx(4 * 200.0 / 200.0)  # wind, PV, thermal and hydro
     assert row.forecast_demand_mw == 190.0
     assert row.actual_demand_mw == 1.0
     assert row.spot_price_eur_mwh == pytest.approx(122.5)
