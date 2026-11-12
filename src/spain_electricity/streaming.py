@@ -15,15 +15,19 @@ from spain_electricity.features import add_renewable_share
 from spain_electricity.sources.ree_generation import parse_payload, with_utc
 
 WATERMARK = "2 hours"
+# Files per micro-batch: enough to drain hours of live captures after a restart in a few batches.
+MAX_FILES_PER_TRIGGER = 20
 
 
-def read_generation_stream(spark: SparkSession, landing_dir) -> DataFrame:
+def read_generation_stream(
+    spark: SparkSession, landing_dir, max_files_per_trigger: int = MAX_FILES_PER_TRIGGER
+) -> DataFrame:
     """Return a streaming DataFrame of unique 5-minute readings with the renewable share."""
     source = landing_dir / REE_LANDING
     source.mkdir(parents=True, exist_ok=True)
     text = (
         spark.readStream.option("wholetext", True)
-        .option("maxFilesPerTrigger", 1)
+        .option("maxFilesPerTrigger", max_files_per_trigger)
         .option("pathGlobFilter", "*.jsonp")
         .text(str(source))
     )
@@ -60,11 +64,16 @@ def _windows_writer(target: str):
 
 
 def start_stream(
-    spark: SparkSession, paths: DataPaths, *, trigger_seconds: int = 30, available_now: bool = False
+    spark: SparkSession,
+    paths: DataPaths,
+    *,
+    trigger_seconds: int = 30,
+    available_now: bool = False,
+    max_files_per_trigger: int = MAX_FILES_PER_TRIGGER,
 ) -> list[StreamingQuery]:
     """Start the ``readings`` and ``windows`` queries; each has its own checkpoint."""
     trigger = {"availableNow": True} if available_now else {"processingTime": f"{trigger_seconds} seconds"}
-    readings = read_generation_stream(spark, paths.landing)
+    readings = read_generation_stream(spark, paths.landing, max_files_per_trigger)
     readings_query = (
         readings.writeStream.queryName("readings")
         .format("parquet")

@@ -40,7 +40,7 @@ There are two independent paths: the batch path processes the downloaded history
 |---|---|---|
 | Browse the history | The UI | After downloading and ingesting once |
 | Follow today's data | `capture_realtime.py`, `run_stream.py` and the UI | Start from an empty `data/stream`. Live shows readings a few minutes old; without both scripts it shows the last processed readings, with a notice |
-| Demo with replayed history | `run_stream.py`, `replay_history.py` and the UI | Replay days the stream has not seen yet, or empty `data/stream` first |
+| Demo with replayed history | `run_stream.py`, `replay_history.py` and the UI | Replay days later than the newest reading the stream has processed, or empty `data/stream` first |
 
 ## Requirements
 
@@ -84,18 +84,18 @@ uv run python scripts/run_stream.py
 Feed it from another terminal, either with replayed history or with live data:
 
 ```bash
-# Replay: one downloaded day every 5 seconds, as if it were arriving live
-uv run python scripts/replay_history.py --start 2025-01-01 --end 2025-01-07 --delay 5
+# Replay: one downloaded day every 30 seconds, as if it were arriving live
+uv run python scripts/replay_history.py --start 2025-01-01 --end 2025-01-07 --delay 30
 # Live: capture REE and Open-Meteo every 5 minutes (catches up missed days on start)
 uv run python scripts/capture_realtime.py
 ```
 
-In live mode the first capture lands today's file at once, and the stream processes it within 30 seconds. In http://localhost:4041 (or 4040 when the UI is not running) Spark's own UI shows every micro-batch.
+In live mode the first capture lands today's file at once, and the stream processes it within 30 seconds. Every 30-second micro-batch takes up to 20 landed files (`--max-files`), so after a restart the stream works through the captures it missed in a few batches. Spark's own UI shows every micro-batch at http://localhost:4040, or the next free port (4041, 4042…) when another Spark session already holds it.
 
 The stream keeps a 2-hour watermark. Once it has seen a reading, anything more than 2 hours older is dropped as late. Two consequences:
 
 - Replaying days that were already replayed adds nothing; replay later days, or delete `data/stream` to start over.
-- Do not mix replay and live captures in the same `data/stream`. Use a separate folder (`SPAIN_ELECTRICITY_DATA_DIR=/path/to/other/data`) or delete `data/stream` between modes.
+- Do not mix replay and live captures in the same `data/stream`: delete `data/stream` between modes. It holds only the stream's input, checkpoints and output; the history is untouched. (`SPAIN_ELECTRICITY_DATA_DIR` moves the whole data folder, history included, so it does not keep two streams apart.)
 
 ### 3. UI
 
@@ -118,10 +118,10 @@ With the history already ingested:
 rm -rf data/stream   # only the stream's output and checkpoints; the history is untouched
 uv run streamlit run app/streamlit_app.py
 uv run python scripts/run_stream.py
-uv run python scripts/replay_history.py --start 2025-01-04 --end 2025-01-10 --delay 5
+uv run python scripts/replay_history.py --start 2025-01-04 --end 2025-01-10 --delay 30
 ```
 
-Open the Live tab: a new day lands every 5 seconds and the stream picks it up within 30 seconds.
+Open the Live tab: a past day lands every 30 seconds and the stream processes it in its next micro-batch, so Live advances one day at a time; the 7 days take about 3.5 minutes.
 
 ### Tests
 

@@ -103,3 +103,36 @@ def test_replay_notice_says_the_data_is_old_and_how_to_go_live(paths):
 def test_no_replay_notice_when_capturing_live(paths):
     land(paths, "20261110T175500Z.jsonp", 1_700_000_100)
     assert views.replay_notice(paths, READINGS) is None
+
+
+def commit_batch(paths, mtime):
+    folder = paths.checkpoints / "readings" / "commits"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / "0"
+    path.write_text("v1")
+    os.utime(path, (mtime, mtime))
+
+
+STALE = READINGS.assign(ts_utc=[pd.Timestamp("2026-11-10 17:00")])
+
+
+def test_stale_warning_names_the_stream_when_landed_files_wait(paths):
+    land(paths, "20261110T175500Z.jsonp", NOW.timestamp() - 120)
+    commit_batch(paths, NOW.timestamp() - 40 * 60)
+    message = views.stale_warning(paths, STALE, NOW)
+    assert "run_stream.py" in message and "capture_realtime.py" not in message
+
+
+def test_stale_warning_names_the_capture_when_nothing_lands(paths):
+    land(paths, "20261110T171500Z.jsonp", NOW.timestamp() - 40 * 60)
+    commit_batch(paths, NOW.timestamp() - 39 * 60)
+    message = views.stale_warning(paths, STALE, NOW)
+    assert "capture_realtime.py" in message and "run_stream.py" not in message
+
+
+def test_stale_warning_blames_the_feed_when_both_scripts_run(paths):
+    land(paths, "20261110T175500Z.jsonp", NOW.timestamp() - 120)
+    commit_batch(paths, NOW.timestamp() - 60)
+    message = views.stale_warning(paths, STALE, NOW)
+    assert "REE's real-time feed" in message
+    assert "run_stream.py" not in message and "capture_realtime.py" not in message

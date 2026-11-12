@@ -25,7 +25,7 @@ Every command runs through `uv run`, which uses the project's Python and librari
 |---|---|---|
 | Browse the history | The UI, after `download_history.py` and `ingest.py` once | Data status, History and Analysis |
 | Follow today's data | `capture_realtime.py`, `run_stream.py` and the UI, from an empty `data/stream` | Live with readings a few minutes old, a new capture every 5 minutes |
-| Demo with replayed history | `run_stream.py`, `replay_history.py` and the UI, replaying days the stream has not seen | Live advancing one past day every `--delay` seconds |
+| Demo with replayed history | `run_stream.py`, `replay_history.py` and the UI, replaying days later than the newest reading the stream has processed (or from an empty `data/stream`) | Live advancing one past day per micro-batch with `--delay 30` |
 
 With none of the streaming scripts running, Live shows the last readings that were processed and a notice saying from which day they are.
 
@@ -97,14 +97,14 @@ uv run python scripts/capture_realtime.py
 Copies the downloaded REE days of a range into `landing/`, one every `--delay` seconds, as if they were arriving live. It is the way to demo the stream without depending on REE's real-time feed, which only changes every 5 minutes and sometimes stalls.
 
 ```bash
-uv run python scripts/replay_history.py --start 2025-01-04 --end 2025-01-10 --delay 5
+uv run python scripts/replay_history.py --start 2025-01-04 --end 2025-01-10 --delay 30
 ```
 
 ### Process it: `scripts/run_stream.py`
 
 Starts two Spark Structured Streaming queries and keeps running until Ctrl+C:
 
-1. Every 30 seconds (`--trigger`), it takes the next new file in `landing/`, one file per micro-batch.
+1. Every 30 seconds (`--trigger`), it takes the new files in `landing/`, up to 20 per micro-batch (`--max-files`). After a restart it works through the captures it missed in a few batches.
 2. It parses the 5-minute readings, converts them to UTC and adds the renewable share.
 3. It drops duplicates within a 2-hour watermark, because captures repeat the day so far and replayed days overlap by about 6 hours.
 4. The `readings` query appends each reading to `data/stream/output/readings/`.
@@ -117,7 +117,7 @@ uv run python scripts/run_stream.py --available-now  # processes what has landed
 
 Each query keeps a checkpoint in `data/stream/checkpoints/`, so a restart resumes where it stopped instead of reprocessing every file.
 
-The watermark has a side effect: once the stream has seen a reading, anything more than 2 hours older is dropped as late. That is why the example above replays 4–10 January after 1–3 January had already been replayed, and why replayed history and live captures must not share the same `data/stream` folder. To start over, delete `data/stream`, or point `SPAIN_ELECTRICITY_DATA_DIR` to another folder.
+The watermark has a side effect: once the stream has seen a reading, anything more than 2 hours older is dropped as late. So replay only days later than the newest reading the stream has processed, and never mix replayed history and live captures in the same `data/stream`. To start over, delete `data/stream`: it holds only the stream's input, checkpoints and output, and the history is untouched. `SPAIN_ELECTRICITY_DATA_DIR` is not an alternative, because it moves the whole data folder, history included.
 
 ## The UI: `app/streamlit_app.py`
 
@@ -134,17 +134,18 @@ Opens at <http://localhost:8501>. The app only reads: it aggregates the Parquet 
 | Live | Latest reading, demand and renewable share; the last 6 hours of streamed 5-minute demand; the latest 15-minute windows. Refreshes every 30 seconds | `data/stream/output/` |
 | Analysis | Daily demand against national temperature, working days apart from weekends and holidays, with a quadratic trend; the correlation between hourly variables, one value per pair | `hourly_features` |
 
-In live mode the Live tab warns when the newest reading is more than 20 minutes old, which means REE's feed or the capture has stalled. In replay mode it never warns, since replayed readings are old by design; instead, a notice says from which day the readings are and which scripts to run to follow today's data. The tab only shows today's data while `capture_realtime.py` and `run_stream.py` are running.
+In live mode the Live tab warns when the newest reading is more than 20 minutes old, and says which of three causes it is: the capture landed files the stream has not processed (start `run_stream.py`), nothing has been captured for 15 minutes (start `capture_realtime.py`), or both run and REE's feed is answering with old readings (nothing to restart). In replay mode it never warns, since replayed readings are old by design; instead, a notice says from which day the readings are and which scripts to run to follow today's data. The tab only shows today's data while `capture_realtime.py` and `run_stream.py` are running.
 
 ## Demo in three terminals
 
 ```bash
+rm -rf data/stream   # only the stream's input, checkpoints and output; the history is untouched
 uv run streamlit run app/streamlit_app.py
 uv run python scripts/run_stream.py
-uv run python scripts/replay_history.py --start 2025-01-04 --end 2025-01-10 --delay 5
+uv run python scripts/replay_history.py --start 2025-01-04 --end 2025-01-10 --delay 30
 ```
 
-Open the Live tab: a new day arrives every 5 seconds and the stream picks it up within 30 seconds.
+Open the Live tab: a past day lands every 30 seconds and the stream processes it in its next micro-batch, so Live advances one day at a time; the 7 days take about 3.5 minutes. Without the first line, after a live session every replayed day would be older than the watermark and nothing would appear.
 
 ## Two definitions of demand
 

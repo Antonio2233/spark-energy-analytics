@@ -43,6 +43,10 @@ MIX_TECHNOLOGIES = {
 LIVE_READING_COLUMNS = ("ts_utc", "demand_mw", "renewable_share")
 LIVE_WINDOW_COLUMNS = ("window_start", "avg_demand_mw", "max_demand_mw", "avg_renewable_share", "n_readings")
 STALE_MINUTES = 20
+# The capture lands a file every 5 minutes; three missed captures mean it is not running.
+CAPTURE_QUIET_MINUTES = 15
+# A landed file the stream has not committed this long after landing means the stream is behind or stopped.
+STREAM_GRACE_SECONDS = 60
 # Live captures (and their catch-up backfills) are named after their UTC capture time.
 LIVE_CAPTURE_PREFIX = re.compile(r"^\d{8}T\d{6}Z")
 
@@ -200,21 +204,44 @@ def replay_notice(paths: DataPaths, readings: pd.DataFrame) -> str | None:
     )
 
 
+def _newest_mtime(folder: Path, pattern: str = "*") -> float | None:
+    """Return the newest modification time of the files matching ``pattern`` in ``folder``, or None."""
+    times = (
+        [path.stat().st_mtime for path in folder.glob(pattern) if path.is_file()] if folder.exists() else []
+    )
+    return max(times, default=None)
+
+
 def stale_warning(
     paths: DataPaths, readings: pd.DataFrame, now: datetime, threshold_minutes: float = STALE_MINUTES
 ) -> str | None:
-    """Return a warning when live readings are older than ``threshold_minutes``, else None.
+    """Return a warning naming what to restart when live readings are older than ``threshold_minutes``.
 
-    The age is the newest reading's event time against ``now``: a stalled feed keeps answering with
-    the same readings, so the capture still lands files but no newer reading ever arrives. Replayed
-    history is old by design and never warns.
+    The age is the newest reading's event time against ``now``. Three causes look alike from there:
+    the stream is behind or stopped (a landed capture waits uncommitted), the capture is not running
+    (nothing landed for ``CAPTURE_QUIET_MINUTES``), or REE's feed is answering with old readings
+    (both scripts run). Replayed history is old by design and never warns.
     """
     if stream_mode(paths) != "live" or readings.empty:
         return None
     age = minutes_since(readings["ts_utc"].max(), now)
     if age is None or age <= threshold_minutes:
         return None
+    stale = f"No new readings for {age:.0f} minutes"
+    landed = _newest_mtime(paths.landing / REE_LANDING, "*.jsonp")
+    committed = _newest_mtime(paths.checkpoints / "readings" / "commits")
+    if landed is not None and (committed is None or landed > committed + STREAM_GRACE_SECONDS):
+        return (
+            f"{stale}: the capture has landed files that the stream has not processed. Start or restart "
+            "scripts/run_stream.py; it works through the backlog first."
+        )
+    quiet = (now.timestamp() - landed) / 60 if landed is not None else None
+    if quiet is None or quiet > CAPTURE_QUIET_MINUTES:
+        return (
+            f"{stale}, and nothing has been captured for {quiet or 0:.0f} minutes. Start or restart "
+            "scripts/capture_realtime.py; it catches up missed days on start."
+        )
     return (
-        f"No new readings for {age:.0f} minutes: the REE real-time feed or the capture may be down. "
-        "Restart scripts/capture_realtime.py; it catches up missed days on start."
+        f"{stale}, although the capture and the stream are running: REE's real-time feed is answering "
+        "with old readings, as it does at times. The capture keeps polling; nothing needs restarting."
     )

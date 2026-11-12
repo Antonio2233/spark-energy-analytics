@@ -10,7 +10,7 @@ import logging
 
 from spain_electricity.config import DataPaths
 from spain_electricity.spark_session import get_spark, stop_spark
-from spain_electricity.streaming import start_stream
+from spain_electricity.streaming import MAX_FILES_PER_TRIGGER, start_stream
 
 logger = logging.getLogger("run_stream")
 
@@ -20,12 +20,19 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--trigger", type=int, default=30, help="seconds between micro-batches")
     parser.add_argument("--available-now", action="store_true", help="process pending files, then stop")
+    parser.add_argument(
+        "--max-files", type=int, default=MAX_FILES_PER_TRIGGER, help="landed files taken per micro-batch"
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
     spark = get_spark("stream")
     queries = start_stream(
-        spark, DataPaths.from_env(), trigger_seconds=args.trigger, available_now=args.available_now
+        spark,
+        DataPaths.from_env(),
+        trigger_seconds=args.trigger,
+        available_now=args.available_now,
+        max_files_per_trigger=args.max_files,
     )
     logger.info("Started queries: %s", ", ".join(query.name for query in queries))
     try:

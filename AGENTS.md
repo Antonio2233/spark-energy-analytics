@@ -55,8 +55,9 @@ Do not reopen them unless the team asks.
 | Gas price | MIBGAS `GDAES_D+1` (Spanish day-ahead) reference price, assigned to its first delivery day | The day-ahead product traded every day for the next day |
 | Holidays | The ten national holidays (nine fixed dates plus Good Friday), computed in `national_holidays.py` | Regional and moved holidays are out of scope for a national model |
 | Re-downloads | A file is fetched again while it was written on or before the end of its period plus `settle_days` (1; 7 for the Open-Meteo archive) | A file downloaded while its day or month was still open would otherwise stay partial |
-| Live staleness | In live mode (newest landed file is a timestamped capture) the Live tab warns when the newest reading's event time is more than 20 minutes old; replay never warns | A stalled feed keeps answering with the same readings, so files keep landing but no newer reading arrives; replayed history is old by design |
-| Replay vs live | Never mix replayed history and live captures in the same `data/stream` (use another `SPAIN_ELECTRICITY_DATA_DIR`, or clear `data/stream`) | Once live readings advance the watermark, older replayed readings are dropped as late |
+| Live staleness | In live mode (newest landed file is a timestamped capture) the Live tab warns when the newest reading's event time is more than 20 minutes old, and names the cause: landed files the stream has not committed (start `run_stream.py`), no capture for 15 minutes (start `capture_realtime.py`), or both running with REE's feed stalled; replay never warns | A stalled feed keeps answering with the same readings, so files keep landing but no newer reading arrives; replayed history is old by design |
+| Renewable share | (wind + solar PV + solar thermal + hydro) / demand, never REE's total solar field `sol` | `sol` equals PV + thermal until November 2025 and falls below their sum from December 2025 (mean gap −2,235 MW in June 2026; n = 616,032 readings, 2021–2026), which would move the share by 5 points in 2026 |
+| Replay vs live | Never mix replayed history and live captures in the same `data/stream` (clear `data/stream` between modes; `SPAIN_ELECTRICITY_DATA_DIR` moves the history too, so it is no alternative) | Once live readings advance the watermark, older replayed readings are dropped as late |
 
 ## Open decisions
 
@@ -74,7 +75,7 @@ Checked on 2026-11-03, 2026-11-10 and 2026-11-12 with real downloads. Anything n
 - **Window:** each request returns about 30 hours, from 21:00 of the previous day to 03:00 of the next (361 records every 5 minutes). Consecutive days overlap: deduplicate on `ts`.
 - **Time:** `ts` as `YYYY-MM-DD HH:MM`, local time with no offset. The repeated October hour is labeled `2A:MM` (first pass, UTC+2) and `2B:MM` (second pass, UTC+1); in March the `02` hour is absent. Checked on 2025-10-26 (300 readings on the day) and 2025-03-30 (276).
 - **Fields in MW:**
-  - Known: `dem` demand, `eol` wind, `nuc` nuclear, `cc` combined cycle, `hid` hydro, `sol` solar (≈ `solFot` photovoltaic + `solTer` solar thermal), `car` coal, `cogenResto` cogeneration and other, `inter` net interchange, `exp*` and `imp*` exports and imports per border (`Fra`, `Por`, `Mar`, `And`).
+  - Known: `dem` demand, `eol` wind, `nuc` nuclear, `cc` combined cycle, `hid` hydro, `sol` solar (equal to `solFot` photovoltaic + `solTer` solar thermal until November 2025, below their sum from December 2025; reason not checked), `car` coal, `cogenResto` cogeneration and other, `inter` net interchange, `exp*` and `imp*` exports and imports per border (`Fra`, `Por`, `Mar`, `And`).
   - To document before use: `bio`, `gf`, `aut`, `icb`, `conb`, `turb`, `gnhd`, `bat`, `consBat`, `dif`, `vap`.
 - **History:** same format since at least 2012 (checked on days in 2012, 2013, 2014, 2015 and 2021). A day in 2010 returns an empty list.
 - **Real time:** on 2026-11-03 the day's data stopped at 10:45 (queried at 19:18 and 19:24); on 2026-11-10 it worked (17:50 data at 17:58).
@@ -87,7 +88,7 @@ Checked on 2026-11-03, 2026-11-10 and 2026-11-12 with real downloads. Anything n
 - **`demanda/demanda-tiempo-real`:** series `Real`, `Prevista` and `Programada` (actual, forecast and scheduled), every 5 minutes (288 per day, checked on 2021-03-15 and 2026-11-03).
 - **`Real` is not the 5-minute feed's `dem`:** on January 2025 (n = 8,928 five-minute instants) `Real` averages 30,660 MW and the `dem` of `demanda.ree.es` 28,976 MW, 1,684 MW (about 5.5%) lower; `Prevista` minus `Real` averages −59 MW. They cover different systems: REData names its series "Demanda nacional en tiempo real" (national; field `data.type` of the stored response), while the 5-minute feed calls `demandaGeneracionPeninsula` (Peninsula only). That the whole gap is the Balearic and Canary Islands, Ceuta and Melilla is an inference from its size. The hourly table keeps both (`demand_mw` and `actual_demand_mw`), and REData's national forecast is only compared with `actual_demand_mw` (History tab). The demand model's baseline is the peninsular forecast above.
 - **`mercados/precios-mercados-tiempo-real`:**
-  - `Precio mercado spot`: hourly in 2021 (24 values per day), 96 quarter-hours in 2025 and 2026. On 2025-01-15 the four quarters of every hour are identical (the hourly price repeated); on 2026-11-10 they differ. When the real quarter-hour price started is not checked (October 2025 is an inference).
+  - `Precio mercado spot`: hourly in 2021 (24 values per day), 96 quarter-hours in 2025 and 2026. On 2025-01-15 the four quarters of every hour are identical (the hourly price repeated); on 2026-11-10 they differ. Share of hours whose four quarters differ, measured over the ingested history: 0% from January to August 2025, 0.3% in September 2025, 96.4% in October 2025 and at least 86.9% every later month.
   - `PVPC`: hourly in 2025 and 2026. In the hourly table of 2021–2026 it covers 58.6% of 2021 (from June: about 5,136 of 8,760 hours) and 100% of the later years; that it starts with the June 2021 tariff change is an inference.
 - **Whole months:** one request per month works for both widgets (January 2025: 8,928 values per demand series; 2,976 spot and 744 PVPC prices).
 - **`generacion/estructura-generacion`:** returned 400 with `time_trunc=hour` and worked with `time_trunc=day`. The hourly mix comes from `demanda.ree.es`.
@@ -195,7 +196,7 @@ Phase 2 adds `models.py` (Spark ML pipelines).
   - In the download and capture scripts: fetching data and converting format (JSONP to JSON, XLSX to CSV).
   - For plotting: `toPandas()` on small results already aggregated in Spark.
 - **Layers:** `data/raw` (immutable) → `data/processed` (Parquet partitioned by `year` and `month`) → hourly feature table → models.
-- **Hourly aggregation:** `date_trunc("hour", ts_utc)` with `avg`. The join with gas uses `to_date(ts_utc)`.
+- **Hourly aggregation:** `date_trunc("hour", ts_utc)` with `avg`. The join with gas uses the local date (`local_date`), since MIBGAS prices a delivery day.
 - **Performance:** avoid `collect()` on large data, and `cache()` only DataFrames that are reused, releasing them with `unpersist()`.
 
 ### Features shared between batch and streaming
@@ -213,7 +214,7 @@ Phase 2 adds `models.py` (Spark ML pipelines).
 
 ### Structured Streaming
 
-- **Source:** files in `data/stream/landing/<source>/`, with an explicit schema and `maxFilesPerTrigger`.
+- **Source:** files in `data/stream/landing/<source>/`, with an explicit schema and `maxFilesPerTrigger` (20 by default, `run_stream.py --max-files`).
 - **Capture:** the script writes each download to a temporary file and renames it when done, so Spark never reads a half-written file. The name carries the UTC timestamp.
 - **Windows:** `withWatermark` before every windowed aggregation. `window(ts_utc, "15 minutes")` for monitoring and `window(ts_utc, "1 hour")` for the hourly model.
 - **Checkpoints:** one `checkpointLocation` per query, in `data/stream/checkpoints/<query>/`.
