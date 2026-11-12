@@ -46,8 +46,10 @@ Do not reopen them unless the team asks.
 | Gas | The daily price is repeated across the 24 hours of the day | MIBGAS publishes daily prices |
 | Use of the day | Correlation and visualization (demand against temperature on the coldest and hottest days), and KMeans on each day's 24-hour curve | Extreme days are read at daily scale |
 | Temporal split | Train 2021–2024, validate 2025, test 2026 | It is a time series: never `randomSplit` |
-| Baseline | REE's demand forecast (series `Prevista`) | REE publishes it at the same grain as actual demand |
-| Iberian exception | Regime change in the price model | Between 2022 and 2023 the price of gas used for electricity was capped (exact dates to be confirmed) |
+| Demand target | `demand_mw`, the peninsular demand of the 5-minute feed | It is the demand the streaming job sees, so the model trained on the history is the one applied live |
+| Baseline | REE's peninsular demand forecast (field `pre` of `prevProgPeninsula`, see the data sources) | It forecasts the same system as `demand_mw`: on 2025-01-15 (n = 288 five-minute instants) it averages 33 MW below it, with a mean absolute error of 255 MW (0.8%). REData's `Prevista` is national, about 5% above, and only fits `actual_demand_mw` |
+| Anomalies | 2025-04-28, the Iberian blackout, is excluded from training and validation and flagged as an anomaly; it stays in the data and in the UI | Its mean demand was 15,512 MW, the lowest working day of 2021–2026 by far; a model fitted on it would learn a grid failure, not weather or calendar |
+| Iberian exception | Regime change in the price model | Between 2022 and 2023 the price of gas used for electricity was capped (exact dates to be confirmed against the BOE in phase 2) |
 | Real-time outage | Streaming has a replay mode over the history, and the capture catches up missed days on start | On 2026-11-03 REE's actual demand stalled from 10:45 onwards |
 | Weather cities | Madrid, Barcelona, Valencia, Seville and Bilbao, weighted by approximate population (`config.CITIES`) | Spain has no single temperature |
 | Gas price | MIBGAS `GDAES_D+1` (Spanish day-ahead) reference price, assigned to its first delivery day | The day-ahead product traded every day for the next day |
@@ -60,11 +62,10 @@ Do not reopen them unless the team asks.
 
 - Whether the mix gets its own model (regression of the renewable share on wind, radiation and hour) or only correlations and KMeans. The description given to the lecturer says the mix is explained with Spark ML.
 - Kafka: yes or no, in iteration 3.
-- Which demand the phase-2 model predicts: `demand_mw` (the 5-minute feed, the one streaming sees) or `actual_demand_mw` (REData `Real`, the series REE's forecast predicts). They differ by about 5% (see REData below), so the baseline comparison is only fair against the series the forecast predicts.
 
 ## Data sources
 
-Checked on 2026-11-03 and 2026-11-10 with real downloads. Anything not checked is marked as such.
+Checked on 2026-11-03, 2026-11-10 and 2026-11-12 with real downloads. Anything not checked is marked as such.
 
 ### REE · demand and generation (`demanda.ree.es`)
 
@@ -77,19 +78,21 @@ Checked on 2026-11-03 and 2026-11-10 with real downloads. Anything not checked i
   - To document before use: `bio`, `gf`, `aut`, `icb`, `conb`, `turb`, `gnhd`, `bat`, `consBat`, `dif`, `vap`.
 - **History:** same format since at least 2012 (checked on days in 2012, 2013, 2014, 2015 and 2021). A day in 2010 returns an empty list.
 - **Real time:** on 2026-11-03 the day's data stopped at 10:45 (queried at 19:18 and 19:24); on 2026-11-10 it worked (17:50 data at 17:58).
+- **Peninsular forecast:** `https://demanda.ree.es/WSvisionaMovilesPeninsulaRest/resources/prevProgPeninsula?callback=cb&curva=DEMANDAAU&fecha=YYYY-MM-DD`, the endpoint REE's own viewer calls (found in its `curvas_demanda.min.js`). Same JSONP format and 30-hour window, `cb({"valoresPrevistaProgramada": [...]})` with 361 records of `ts`, `pre` (forecast) and `pro` (scheduled). Checked on 2025-01-15 and 2021-03-15 (2026-11-12). Not downloaded yet: phase 2 adds it.
 
 ### REE · REData API (`apidatos.ree.es`)
 
 - **URL:** `https://apidatos.ree.es/es/datos/{category}/{widget}?start_date=YYYY-MM-DDTHH:MM&end_date=YYYY-MM-DDTHH:MM&time_trunc=hour`. No key.
 - **Format:** JSON with the series in `included[]` (sometimes nested in `included[].attributes.content[]`). Values are in `attributes.values[]` as `{value, percentage, datetime}`, with `datetime` carrying an offset (`2021-03-15T00:00:00.000+01:00`).
 - **`demanda/demanda-tiempo-real`:** series `Real`, `Prevista` and `Programada` (actual, forecast and scheduled), every 5 minutes (288 per day, checked on 2021-03-15 and 2026-11-03).
-- **`Real` is not the 5-minute feed's `dem`:** on January 2025 (n = 8,928 five-minute instants) `Real` averages 30,660 MW and the `dem` of `demanda.ree.es` 28,976 MW, 1,684 MW (about 5.5%) lower; `Prevista` minus `Real` averages −59 MW. They cover different systems: REData names its series "Demanda nacional en tiempo real" (national; field `data.type` of the stored response), while the 5-minute feed calls `demandaGeneracionPeninsula` (Peninsula only). That the whole gap is the Balearic and Canary Islands, Ceuta and Melilla is an inference from its size. The hourly table keeps both (`demand_mw` and `actual_demand_mw`), and REE's forecast is always compared with `actual_demand_mw`.
+- **`Real` is not the 5-minute feed's `dem`:** on January 2025 (n = 8,928 five-minute instants) `Real` averages 30,660 MW and the `dem` of `demanda.ree.es` 28,976 MW, 1,684 MW (about 5.5%) lower; `Prevista` minus `Real` averages −59 MW. They cover different systems: REData names its series "Demanda nacional en tiempo real" (national; field `data.type` of the stored response), while the 5-minute feed calls `demandaGeneracionPeninsula` (Peninsula only). That the whole gap is the Balearic and Canary Islands, Ceuta and Melilla is an inference from its size. The hourly table keeps both (`demand_mw` and `actual_demand_mw`), and REData's national forecast is only compared with `actual_demand_mw` (History tab). The demand model's baseline is the peninsular forecast above.
 - **`mercados/precios-mercados-tiempo-real`:**
   - `Precio mercado spot`: hourly in 2021 (24 values per day), 96 quarter-hours in 2025 and 2026. On 2025-01-15 the four quarters of every hour are identical (the hourly price repeated); on 2026-11-10 they differ. When the real quarter-hour price started is not checked (October 2025 is an inference).
-  - `PVPC`: hourly in 2025 and 2026.
+  - `PVPC`: hourly in 2025 and 2026. In the hourly table of 2021–2026 it covers 58.6% of 2021 (from June: about 5,136 of 8,760 hours) and 100% of the later years; that it starts with the June 2021 tariff change is an inference.
 - **Whole months:** one request per month works for both widgets (January 2025: 8,928 values per demand series; 2,976 spot and 744 PVPC prices).
 - **`generacion/estructura-generacion`:** returned 400 with `time_trunc=hour` and worked with `time_trunc=day`. The hourly mix comes from `demanda.ree.es`.
 - **Errors:** it sometimes answers 400 "Los datos solicitados no están disponibles en este momento" (data not available right now). Retry with a delay.
+- **No peninsular demand:** `demanda-tiempo-real` with `geo_trunc=electric_system&geo_limit=peninsular&geo_ids=8741` answered 502 with that message on two attempts (2026-11-12), while the same request without the filter worked. REData only gives national demand here.
 - **Limits:** request rate and range per request not checked. Download by day or month, with pauses.
 
 ### Open-Meteo
@@ -181,6 +184,7 @@ Phase 2 adds `models.py` (Spark ML pipelines).
 
 - `spain_electricity.spark_session.get_spark` creates the `SparkSession` once per process and returns that same session afterwards, from any thread; `stop_spark()` stops it. Never call `session.stop()` directly, and never build a session with `SparkSession.builder`: Spark's builder rewrites the settings of an existing session.
 - Base configuration: `master("local[*]")`, `spark.sql.session.timeZone=UTC`, a low `spark.sql.shuffle.partitions` locally (for example, 8), and log level `WARN`.
+- **Loopback:** a local session binds the driver to `127.0.0.1`. Task results above 1 MiB, broadcasts and shuffle blocks are fetched from the block manager's address, and the LAN or VPN address Spark picks by default hung silently on a laptop with the firewall in stealth mode (a 3 MB result failed after 96 s; on loopback it took 1.1 s).
 - PySpark 4.2 (the version used in the labs) with Java 17 or 21. pandas stays below 3: PySpark 4.2.1 warns that it does not fully support pandas 3.
 
 ### Processing
@@ -214,7 +218,7 @@ Phase 2 adds `models.py` (Spark ML pipelines).
 - **Windows:** `withWatermark` before every windowed aggregation. `window(ts_utc, "15 minutes")` for monitoring and `window(ts_utc, "1 hour")` for the hourly model.
 - **Checkpoints:** one `checkpointLocation` per query, in `data/stream/checkpoints/<query>/`.
 - **Joins:** stream-static joins with the gas price and the forecast, and `model.transform()` on the streaming DataFrame.
-- **Triggers:** `trigger(processingTime="1 minute")` live, and `trigger(availableNow=True)` in replay mode and in tests.
+- **Triggers:** `trigger(processingTime="30 seconds")` by default (`run_stream.py --trigger`), and `trigger(availableNow=True)` with `--available-now` and in tests.
 - **Sinks:** `foreachBatch` when writing to several of them.
 - **Kafka (extension):** the package `org.apache.spark:spark-sql-kafka-0-10_2.13:<same version as pyspark>` goes in `spark.jars.packages`.
 

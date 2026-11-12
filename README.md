@@ -31,6 +31,16 @@ There are two independent paths: the batch path processes the downloaded history
 - `run_stream.py` is the Spark Structured Streaming job. It reads each landed file, removes duplicates, and writes the 5-minute readings and 15-minute windows.
 - `streamlit_app.py` only reads: it aggregates the Parquet output with Spark and draws it.
 
+### What must be running
+
+`download_history.py` and `ingest.py` run once and stop. `replay_history.py` stops once it has landed its days. `capture_realtime.py`, `run_stream.py` and the UI keep running, each in its own terminal, until Ctrl+C.
+
+| To | Run | Notes |
+|---|---|---|
+| Browse the history | The UI | After downloading and ingesting once |
+| Follow today's data | `capture_realtime.py`, `run_stream.py` and the UI | Start from an empty `data/stream`. Live shows readings a few minutes old; without both scripts it shows the last processed readings, with a notice |
+| Demo with replayed history | `run_stream.py`, `replay_history.py` and the UI | Replay days the stream has not seen yet, or empty `data/stream` first |
+
 ## Requirements
 
 - [uv](https://docs.astral.sh/uv/) to manage Python and dependencies.
@@ -53,6 +63,15 @@ uv run python scripts/ingest.py
 
 Downloads are resumable: a rerun skips files whose period has settled and refreshes those fetched while their day or month was still open.
 
+The models use the full history, from 2021 to yesterday:
+
+```bash
+uv run python scripts/download_history.py --start 2021-01-01 --end 2026-11-09
+uv run python scripts/ingest.py
+```
+
+On 2026-11-10 that was 2,642 files (about 490 MB): the download took 1 h 14 min with no failures, and the ingest 31 s.
+
 ### 2. Streaming
 
 Start the streaming job in one terminal. It processes a new file every 30 seconds and keeps running until Ctrl+C:
@@ -70,6 +89,8 @@ uv run python scripts/replay_history.py --start 2025-01-01 --end 2025-01-07 --de
 uv run python scripts/capture_realtime.py
 ```
 
+In live mode the first capture lands today's file at once, and the stream processes it within 30 seconds. In http://localhost:4041 (or 4040 when the UI is not running) Spark's own UI shows every micro-batch.
+
 The stream keeps a 2-hour watermark. Once it has seen a reading, anything more than 2 hours older is dropped as late. Two consequences:
 
 - Replaying days that were already replayed adds nothing; replay later days, or delete `data/stream` to start over.
@@ -81,7 +102,7 @@ The stream keeps a 2-hour watermark. Once it has seen a reading, anything more t
 uv run streamlit run app/streamlit_app.py
 ```
 
-Opens at <http://localhost:8501>, with four tabs. All times are UTC. Under every chart, a folded section explains each series and links its source.
+Opens at <http://localhost:8501>, with four tabs. All times are UTC. Under every chart, a folded section explains each series and links its source. Restart the UI after changing code in `src/`: Streamlit reruns the app file when it changes, but keeps the package modules it already loaded.
 
 - **Data status:** rows and time range of every processed dataset, with its source; the attributes (columns) of each dataset; and what every variable and generation technology is, its unit, and where it comes from.
 - **History:** actual demand vs REE's forecast (both from REData, so they measure the same demand), the generation mix (one line per technology), and day-ahead price vs PVPC.
@@ -90,9 +111,10 @@ Opens at <http://localhost:8501>, with four tabs. All times are UTC. Under every
 
 ### Demo in three terminals
 
-With the sample month already ingested:
+With the history already ingested:
 
 ```bash
+rm -rf data/stream   # only the stream's output and checkpoints; the history is untouched
 uv run streamlit run app/streamlit_app.py
 uv run python scripts/run_stream.py
 uv run python scripts/replay_history.py --start 2025-01-04 --end 2025-01-10 --delay 5

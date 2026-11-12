@@ -17,6 +17,18 @@ There are two independent paths. The batch path handles the history; the streami
 
 Every command runs through `uv run`, which uses the project's Python and libraries (the `.venv` that uv manages).
 
+## What must be running
+
+`download_history.py`, `ingest.py` and `replay_history.py` do their work and stop. `capture_realtime.py`, `run_stream.py` and the UI keep running until Ctrl+C, each in its own terminal.
+
+| To | Run | What you see |
+|---|---|---|
+| Browse the history | The UI, after `download_history.py` and `ingest.py` once | Data status, History and Analysis |
+| Follow today's data | `capture_realtime.py`, `run_stream.py` and the UI, from an empty `data/stream` | Live with readings a few minutes old, a new capture every 5 minutes |
+| Demo with replayed history | `run_stream.py`, `replay_history.py` and the UI, replaying days the stream has not seen | Live advancing one past day every `--delay` seconds |
+
+With none of the streaming scripts running, Live shows the last readings that were processed and a notice saying from which day they are.
+
 ## Batch path: the history
 
 ### Download: `scripts/download_history.py`
@@ -143,4 +155,6 @@ REE publishes demand in two places, and they do not match:
 
 On January 2025 (n = 8,928 five-minute instants), `actual_demand_mw` averages 30,660 MW and `demand_mw` 28,976 MW, about 5.5% lower. REE's forecast is only 59 MW below `actual_demand_mw` on average. They cover different systems: REData's series is national ("Demanda nacional en tiempo real"), while the 5-minute feed covers the Peninsula only. That the whole gap is the Balearic and Canary Islands, Ceuta and Melilla is an inference from its size.
 
-The History tab therefore compares the forecast with `actual_demand_mw`. Which of the two the phase 2 demand model predicts is an open decision, recorded in [AGENTS.md](../AGENTS.md).
+The History tab therefore compares REData's forecast with `actual_demand_mw`. The phase 2 demand model predicts `demand_mw`, the demand the streaming job sees, and its baseline is REE's peninsular forecast, which comes from another endpoint of the 5-minute feed and matches `demand_mw` (on 15 January 2025, n = 288, it is 33 MW below on average). The decision and the endpoint are recorded in [AGENTS.md](../AGENTS.md).
+
+The Iberian blackout of 28 April 2025 shows as the lowest working day in the Analysis tab (mean demand 15,512 MW). It stays in the data and the UI, but the phase 2 models exclude it from training and validation.

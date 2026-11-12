@@ -85,8 +85,9 @@ VARIABLES = (
         "forecast_demand_mw",
         "REE forecast",
         "MW",
-        "REE's own forecast of national demand (series Prevista), at the same 5-minute grain. It is the "
-        "baseline our demand model has to beat.",
+        "REE's own forecast of national demand (series Prevista), at the same 5-minute grain. It is "
+        "compared with the national actual demand; the demand model's baseline is REE's peninsular "
+        "forecast instead.",
         REDATA,
     ),
     Entry(
