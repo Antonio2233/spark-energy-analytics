@@ -7,6 +7,7 @@ Final project for the Big Data course (UMA Master's). We combine Red Eléctrica'
 - [How phase 1 works](docs/01-how-it-works.md): what every script does, the datasets it writes, the streaming job and the UI tabs.
 - [Project plan](docs/plan.md): questions, sources, models, streaming and schedule by iteration.
 - [Phase 1 implementation plan](docs/superpowers/plans/2026-11-10-phase-1-data.md): data ingestion, first stream and UI.
+- [Phase 2 implementation plan](docs/superpowers/plans/2026-11-12-phase-2-models.md): Spark ML models against REE's baselines, day types, expected demand in the stream and a Models tab.
 - [AGENTS.md](AGENTS.md): instructions for AI-assisted development, data-source facts, Spark usage, Python guide and tests.
 
 ## How the pieces fit
