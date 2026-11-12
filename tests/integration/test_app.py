@@ -26,8 +26,9 @@ def test_app_runs_with_ingested_fixtures(spark, monkeypatch, paths, fixtures_dir
     app = AppTest.from_file(APP, default_timeout=180).run()
     assert not app.exception
     assert not any("No data yet" in info.value for info in app.info)
-    assert len(app.tabs) == 5
-    assert app.tabs[4].label == "About the data"
+    assert [tab.label for tab in app.tabs] == ["Data status", "History", "Live", "Analysis"]
+    guide = [expander.label for expander in app.tabs[0].expander]
+    assert {"Variables", "Generation technologies", "Sources"} <= set(guide)
 
 
 @pytest.mark.integration

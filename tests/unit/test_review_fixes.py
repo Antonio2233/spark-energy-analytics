@@ -89,3 +89,17 @@ def test_no_stale_warning_while_replaying(paths):
     land(paths, "ree_generation_2025-01-01.jsonp", 1_700_000_000)
     old = READINGS.assign(ts_utc=[pd.Timestamp("2025-01-01 10:00")])
     assert views.stale_warning(paths, old, NOW) is None
+
+
+def test_replay_notice_says_the_data_is_old_and_how_to_go_live(paths):
+    land(paths, "ree_generation_2025-01-03.jsonp", 1_700_000_000)
+    replayed = READINGS.assign(ts_utc=[pd.Timestamp("2025-01-04 02:00")])
+    message = views.replay_notice(paths, replayed)
+    assert message is not None
+    assert "04 Jan 2025" in message
+    assert "capture_realtime.py" in message and "run_stream.py" in message
+
+
+def test_no_replay_notice_when_capturing_live(paths):
+    land(paths, "20261110T175500Z.jsonp", 1_700_000_100)
+    assert views.replay_notice(paths, READINGS) is None

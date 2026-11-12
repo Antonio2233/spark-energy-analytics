@@ -187,6 +187,19 @@ def stream_mode(paths: DataPaths) -> str:
     return "live" if LIVE_CAPTURE_PREFIX.match(newest.name) else "replay"
 
 
+def replay_notice(paths: DataPaths, readings: pd.DataFrame) -> str | None:
+    """Return, while replaying, which day the readings come from and how to follow today's data instead."""
+    if stream_mode(paths) != "replay" or readings.empty:
+        return None
+    newest = pd.Timestamp(readings["ts_utc"].max())
+    return (
+        f"Replayed history, not today's data: the newest reading is from {newest:%d %b %Y}, and nothing is "
+        "capturing REE live. To follow today's data, empty data/stream and run "
+        "`uv run python scripts/capture_realtime.py` and `uv run python scripts/run_stream.py`, each in its "
+        "own terminal; new readings then appear here within a few minutes."
+    )
+
+
 def stale_warning(
     paths: DataPaths, readings: pd.DataFrame, now: datetime, threshold_minutes: float = STALE_MINUTES
 ) -> str | None:

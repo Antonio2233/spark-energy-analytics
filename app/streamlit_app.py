@@ -1,4 +1,4 @@
-"""Streamlit UI over the Spark views: data status, history, live stream, first analysis and a data guide.
+"""Streamlit UI over the Spark views: data status and guide, history, live stream and first analysis.
 
 Run with:
     uv run streamlit run app/streamlit_app.py
@@ -89,9 +89,7 @@ def dataset_folders(data_paths: DataPaths) -> dict[str, Path]:
 
 st.title("Spain electricity: demand, generation mix and price")
 st.caption("Red Eléctrica · Open-Meteo · MIBGAS — processed with Spark, shown with Streamlit. Times are UTC.")
-status_tab, history_tab, live_tab, analysis_tab, about_tab = st.tabs(
-    ["Data status", "History", "Live", "Analysis", "About the data"]
-)
+status_tab, history_tab, live_tab, analysis_tab = st.tabs(["Data status", "History", "Live", "Analysis"])
 status = cached_status(spark, root)
 hourly_row = status.set_index("dataset").loc["hourly_features"]
 has_history = int(hourly_row["rows"]) > 0
@@ -139,6 +137,29 @@ with status_tab:
                         "description": st.column_config.TextColumn("What it is", width="large"),
                     },
                 )
+    st.subheader("About the data")
+    st.caption(
+        "What every series in this app means, its unit, and where it comes from. Power values (MW) are "
+        "means: an hourly value is the mean of its twelve 5-minute readings."
+    )
+    with st.expander("Variables"):
+        st.markdown(catalog.markdown(catalog.VARIABLES))
+    with st.expander("Generation technologies"):
+        st.markdown(catalog.markdown(catalog.TECHNOLOGIES))
+    with st.expander("Sources"):
+        st.dataframe(
+            pd.DataFrame(
+                [(source.name, source.endpoint, source.url) for source in catalog.SOURCES],
+                columns=["source", "endpoint", "link"],
+            ),
+            hide_index=True,
+            width="stretch",
+            column_config={
+                "source": "Source",
+                "endpoint": "What the project calls",
+                "link": st.column_config.LinkColumn("Link"),
+            },
+        )
 
 
 def render_history(start, end) -> None:
@@ -234,7 +255,9 @@ def live_panel() -> None:
         st.info(NO_STREAM)
         return
     now = datetime.now(UTC)
-    mode = views.stream_mode(paths)
+    notice = views.replay_notice(paths, readings)
+    if notice:
+        st.info(notice)
     latest = readings.iloc[-1]
     first, second, third = st.columns(3)
     first.metric("Latest reading (UTC)", pd.Timestamp(latest.ts_utc).strftime("%a %d %b %H:%M"))
@@ -243,9 +266,7 @@ def live_panel() -> None:
     warning = views.stale_warning(paths, readings, now)
     if warning:
         st.warning(warning)
-    elif mode == "replay":
-        st.caption("Replaying downloaded history: event times are in the past by design.")
-    else:
+    elif notice is None:
         age = views.minutes_since(latest.ts_utc, now)
         st.caption(f"Newest reading is {age:.0f} min old" if age is not None else "")
     st.altair_chart(
@@ -285,8 +306,9 @@ def live_panel() -> None:
 
 with live_tab:
     st.caption(
-        "Output of scripts/run_stream.py: Spark reads each file that lands in data/stream/landing "
-        "and updates these results."
+        "Output of the streaming job (scripts/run_stream.py): Spark reads each file that lands in "
+        "data/stream/landing. It shows today's data while scripts/capture_realtime.py is running, or past "
+        "days replayed with scripts/replay_history.py."
     )
     live_panel()
 
@@ -317,27 +339,3 @@ with analysis_tab:
                 st.dataframe(
                     matrix.set_axis(labels, axis=0).set_axis(labels, axis=1).round(2), width="stretch"
                 )
-
-with about_tab:
-    st.caption(
-        "What every series in this app means, its unit, and where it comes from. Times are UTC. Power "
-        "values (MW) are means: an hourly value is the mean of its twelve 5-minute readings."
-    )
-    st.subheader("Variables")
-    st.markdown(catalog.markdown(catalog.VARIABLES))
-    st.subheader("Generation technologies")
-    st.markdown(catalog.markdown(catalog.TECHNOLOGIES))
-    st.subheader("Sources")
-    st.dataframe(
-        pd.DataFrame(
-            [(source.name, source.endpoint, source.url) for source in catalog.SOURCES],
-            columns=["source", "endpoint", "link"],
-        ),
-        hide_index=True,
-        width="stretch",
-        column_config={
-            "source": "Source",
-            "endpoint": "What the project calls",
-            "link": st.column_config.LinkColumn("Link"),
-        },
-    )
