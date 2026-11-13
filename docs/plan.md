@@ -19,7 +19,7 @@ The **ML** part explains and predicts using the 2021–2026 history. The **strea
 | Source | What it provides | History | Real time |
 |---|---|---|---|
 | REE · REData API (`apidatos.ree.es`) | Actual, forecast and scheduled demand; market price and PVPC | Yes | Yes |
-| REE · demand and generation (`demanda.ree.es`) | Generation by technology every 5 minutes | Yes | Yes |
+| REE · demand and generation (`demanda.ree.es`) | Peninsular demand and generation by technology every 5 minutes; REE's peninsular demand forecast | Yes | Yes |
 | Open-Meteo | Temperature, wind at 100 m and solar radiation | Hourly archive | Current data every 15 minutes |
 | MIBGAS | Daily natural gas price on the Iberian market | Yearly files | Daily |
 | Working calendar | National holidays | Yes | — |
@@ -42,7 +42,7 @@ The **ML** part explains and predicts using the 2021–2026 history. The **strea
 - Ingestion and cleaning in Spark, with data stored as Parquet partitioned by month.
 - Correlation analysis (`pyspark.ml.stat.Correlation`) and visualizations built from aggregates computed in Spark.
 - Spark ML pipelines (`VectorAssembler`, `OneHotEncoder`, `StandardScaler`, model), tuned with `ParamGridBuilder` on a temporal validation set:
-  - Hourly demand regression from temperature, hour, day of week, month and holidays. A linear regression, whose coefficients can be read, is compared with Random Forest and GBT. The baseline to beat is REE's own forecast.
+  - Hourly demand regression from temperature, hour, day of week, month and holidays. A linear regression, whose coefficients can be read, is compared with Random Forest and GBT. The target is the peninsular demand of the 5-minute feed, and the baseline to beat is REE's own peninsular forecast. The 28 April 2025 blackout is excluded from training and validation.
   - Hourly price regression from the gas price, the renewable share, demand and hour.
   - KMeans on the 24-hour curve of each day to find day types: cold winter day, hot summer day, windy day, sunny day.
 - Temporal validation: train on 2021–2024, validate on 2025 and test on 2026.
@@ -94,6 +94,8 @@ flowchart LR
 - The market price moved from hourly to quarter-hourly in 2025: from then on it is aggregated per hour as the mean of the four quarters.
 - Gas has a daily price: the hourly model sees the same value across the 24 hours, so its effect shows in the level of the day, not in the shape of the curve.
 - The "Iberian exception" (2022–2023) capped the price of gas used to generate electricity. It must be treated as a regime change in the price model.
+- The Iberian blackout of 28 April 2025 left a day with a mean demand of 15,512 MW, far below any other working day. It is excluded from training and validation and flagged as an anomaly.
+- REE publishes demand for two systems: the 5-minute feed is peninsular and REData's series is national, about 5% higher. The model and its baseline both use the peninsular series.
 
 ## Links
 
