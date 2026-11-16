@@ -1,0 +1,8 @@
+# Preserve the exact snapshot bytes on every platform.
+data/raw/** -text -diff
+data/processed/** -text
+data/models/** -text
+data/demand_sample.json -text
+data/snapshot_manifest.json -text
+*.parquet binary
+*.xlsx binary

@@ -9,17 +9,18 @@ from pyspark.sql import SparkSession
 from spain_electricity.config import DataPaths
 from spain_electricity.download import DownloadJob
 from spain_electricity.features import write_hourly_features
-from spain_electricity.sources import mibgas, open_meteo, redata, ree_generation
+from spain_electricity.sources import mibgas, open_meteo, redata, ree_forecast, ree_generation
 from spain_electricity.storage import has_files
 
 logger = logging.getLogger(__name__)
 
-SOURCES = ("ree_generation", "redata_demand", "redata_price", "open_meteo", "mibgas")
+SOURCES = ("ree_generation", "redata_demand", "redata_price", "open_meteo", "mibgas", "ree_forecast")
 
 
 def download_jobs(sources: Sequence[str], start: date, end: date, paths: DataPaths) -> list[DownloadJob]:
     """Return the download jobs of the selected sources for ``start``..``end``."""
     builders = {
+        "ree_forecast": lambda: ree_forecast.jobs(start, end, paths),
         "ree_generation": lambda: ree_generation.jobs(start, end, paths),
         "redata_demand": lambda: redata.demand_jobs(start, end, paths),
         "redata_price": lambda: redata.price_jobs(start, end, paths),
@@ -35,6 +36,7 @@ def download_jobs(sources: Sequence[str], start: date, end: date, paths: DataPat
 def run_ingest(spark: SparkSession, paths: DataPaths) -> dict[str, int]:
     """Ingest every source that has raw data, then the hourly table; return row counts by dataset."""
     steps = [
+        ("peninsular_forecast", "ree_forecast", "*.jsonp", lambda: ree_forecast.ingest(spark, paths)),
         ("generation", "ree_generation", "*.jsonp", lambda: ree_generation.ingest(spark, paths)),
         ("demand_forecast", "redata_demand", "*.json", lambda: redata.ingest_demand(spark, paths)),
         ("market_price", "redata_price", "*.json", lambda: redata.ingest_price(spark, paths)),

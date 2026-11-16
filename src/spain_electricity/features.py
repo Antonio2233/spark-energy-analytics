@@ -85,6 +85,11 @@ def build_hourly_features(spark: SparkSession, paths: DataPaths) -> DataFrame:
     table = add_renewable_share(
         hourly_mean(spark.read.parquet(str(generation_path)), "ts_utc", GENERATION_COLUMNS)
     )
+    baseline = _read_optional(spark, paths.processed / "peninsular_forecast")
+    if baseline is None:
+        table = _with_nulls(table, ["peninsular_forecast_mw"])
+    else:
+        table = table.join(hourly_mean(baseline, "ts_utc", ["peninsular_forecast_mw"]), "hour_utc", "left")
 
     # REData's actual demand travels with its forecast: the forecast predicts that series, which
     # runs about 5% above the 5-minute feed's demand_mw (January 2025).

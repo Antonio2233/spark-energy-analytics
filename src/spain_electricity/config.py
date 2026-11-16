@@ -33,9 +33,24 @@ CITIES: dict[str, City] = {
 
 @dataclass(frozen=True)
 class DataPaths:
-    """Folder layout under the data root (never versioned)."""
+    """Curated shared data and isolated local streaming state under one data root."""
 
     root: Path
+    stream_name: str | None = None
+
+    def __post_init__(self) -> None:
+        """Accept only known stream namespaces, never arbitrary filesystem paths."""
+        if self.stream_name not in (None, "live", "replay"):
+            raise ValueError("stream_name must be live, replay or None")
+
+    @property
+    def stream_root(self) -> Path:
+        """Keep UI live state isolated while sharing history and saved models."""
+        return self.root / ("stream_live" if self.stream_name == "live" else "stream")
+
+    def with_stream(self, name: str) -> "DataPaths":
+        """Select live or legacy replay state without moving history or models."""
+        return DataPaths(self.root, name)
 
     @property
     def raw(self) -> Path:
@@ -50,17 +65,17 @@ class DataPaths:
     @property
     def landing(self) -> Path:
         """Real-time files read by the streaming job."""
-        return self.root / "stream" / "landing"
+        return self.stream_root / "landing"
 
     @property
     def checkpoints(self) -> Path:
         """Structured Streaming checkpoints, one folder per query."""
-        return self.root / "stream" / "checkpoints"
+        return self.stream_root / "checkpoints"
 
     @property
     def stream_output(self) -> Path:
         """Results written by the streaming job."""
-        return self.root / "stream" / "output"
+        return self.stream_root / "output"
 
     @property
     def models(self) -> Path:

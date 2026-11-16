@@ -7,7 +7,7 @@ from collections.abc import Iterable
 from datetime import date
 from pathlib import Path
 
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame, SparkSession, Window
 from pyspark.sql import functions as F
 from pyspark.sql.types import ArrayType, DoubleType, StringType, StructField, StructType
 
@@ -37,6 +37,36 @@ ARCHIVE_SCHEMA = StructType(
         )
     ]
 )
+CURRENT_SCHEMA = StructType(
+    [
+        StructField(
+            "current",
+            StructType(
+                [
+                    StructField("time", StringType()),
+                    *[StructField(variable, DoubleType()) for variable in HOURLY_VARIABLES],
+                ]
+            ),
+        ),
+    ]
+)
+
+
+def read_current(spark: SparkSession, folder: Path) -> DataFrame:
+    """Read multi-city captures, keeping the newest capture of each city's observation."""
+    text = spark.read.option("wholetext", True).option("pathGlobFilter", "*.json").text(str(folder))
+    text = text.withColumn("capture_name", F.col("_metadata.file_name"))
+    payload = F.from_json("value", ArrayType(CURRENT_SCHEMA))
+    cities = F.array(*[F.lit(city) for city in CITIES])
+    rows = text.select("capture_name", F.posexplode(payload).alias("position", "weather"))
+    rows = rows.select(
+        "capture_name",
+        F.element_at(cities, F.col("position") + 1).alias("city"),
+        F.to_timestamp("weather.current.time", "yyyy-MM-dd'T'HH:mm").alias("ts_utc"),
+        *[F.col(f"weather.current.{raw}").alias(column) for raw, column in VARIABLE_TO_COLUMN.items()],
+    )
+    rank = F.row_number().over(Window.partitionBy("city", "ts_utc").orderBy(F.desc("capture_name")))
+    return rows.withColumn("rank", rank).where("rank = 1").drop("rank", "capture_name")
 
 
 def build_archive_url(city: City, start: date, end: date) -> str:

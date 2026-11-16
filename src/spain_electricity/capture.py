@@ -20,12 +20,14 @@ import requests
 
 from spain_electricity.config import CITIES, LOCAL_TIMEZONE, DataPaths
 from spain_electricity.download import USER_AGENT
-from spain_electricity.sources import open_meteo, ree_generation
+from spain_electricity.sources import open_meteo, redata, ree_forecast, ree_generation
 
 logger = logging.getLogger(__name__)
 
 REE_LANDING = "ree_generation"
 WEATHER_LANDING = "open_meteo_current"
+PRICE_LANDING = "market_price"
+FORECAST_LANDING = "peninsular_forecast"
 CAPTURE_NAME = re.compile(r"^(\d{8}T\d{6}Z)\.jsonp$")
 STAMP_FORMAT = "%Y%m%dT%H%M%SZ"
 
@@ -89,6 +91,35 @@ def capture_once(paths: DataPaths, now: datetime, *, session: requests.Session) 
     return written
 
 
+def capture_market_once(
+    paths: DataPaths, now: datetime, *, session: requests.Session, refresh_seconds: int = 900
+) -> list[Path]:
+    """Refresh daily price/forecast snapshots at most every 15 minutes; do not poll gas workbooks."""
+    day = now.astimezone(ZoneInfo(LOCAL_TIMEZONE)).date()
+    jobs = [
+        (PRICE_LANDING, f"redata_price_{day}.json", redata.build_price_day_url(day), redata.is_valid_payload),
+        (
+            FORECAST_LANDING,
+            f"ree_forecast_{day}.jsonp",
+            ree_forecast.build_url(day),
+            ree_forecast.is_valid_payload,
+        ),
+    ]
+    written = []
+    for folder, name, url, validator in jobs:
+        target = paths.landing / folder / name
+        if target.exists() and 0 <= now.timestamp() - target.stat().st_mtime < refresh_seconds:
+            continue
+        content = _get(session, url)
+        if content is None or not validator(content):
+            logger.warning("No valid market snapshot for %s; retaining the previous snapshot", name)
+            continue
+        target = _write_atomically(target.parent, name, content)
+        os.utime(target, (now.timestamp(), now.timestamp()))
+        written.append(target)
+    return written
+
+
 def last_capture_time(landing_dir: Path) -> datetime | None:
     """Return the UTC time of the newest live capture, ignoring replayed or backfilled files."""
     folder = landing_dir / REE_LANDING
@@ -130,6 +161,7 @@ def run_capture(paths: DataPaths, interval_seconds: int = 300) -> None:
     catch_up(paths, datetime.now(UTC), session=session)
     while True:
         written = capture_once(paths, datetime.now(UTC), session=session)
+        written.extend(capture_market_once(paths, datetime.now(UTC), session=session))
         logger.info("Captured %d file(s) into %s", len(written), paths.landing)
         time.sleep(interval_seconds)
 

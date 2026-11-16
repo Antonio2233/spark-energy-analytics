@@ -1,5 +1,13 @@
-# Data, models and streaming state: never versioned (downloaded or generated)
-data/
+# Curated teaching snapshot is shared; environments and live/replay state stay local.
+data/*
+!data/raw/
+!data/processed/
+!data/models/
+!data/demand_sample.json
+!data/snapshot_manifest.json
+!data/README.md
+data/**/_temporary/
+data/**/*.part
 
 # Spark local artifacts
 spark-warehouse/

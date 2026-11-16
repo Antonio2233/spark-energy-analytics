@@ -16,15 +16,17 @@ from pyspark.sql import functions as F
 
 from spain_electricity.capture import REE_LANDING
 from spain_electricity.config import DataPaths
-from spain_electricity.storage import has_parquet
+from spain_electricity.storage import completed_batches, has_parquet
 
 DATASETS = ("generation", "demand_forecast", "market_price", "weather", "gas_price", "hourly_features")
+DATASETS = (*DATASETS, "peninsular_forecast")
 TIME_COLUMN = {"gas_price": "delivery_date", "hourly_features": "hour_utc"}
 HISTORY_COLUMNS = (
     "hour_utc",
     "demand_mw",
     "actual_demand_mw",
     "forecast_demand_mw",
+    "peninsular_forecast_mw",
     "renewable_share",
     "spot_price_eur_mwh",
     "pvpc_eur_mwh",
@@ -102,6 +104,8 @@ def hourly_history(spark: SparkSession, paths: DataPaths, start: date, end: date
     hourly = _hourly(spark, paths)
     if hourly is None:
         return pd.DataFrame(columns=list(HISTORY_COLUMNS))
+    if "peninsular_forecast_mw" not in hourly.columns:
+        hourly = hourly.withColumn("peninsular_forecast_mw", F.lit(None).cast("double"))
     selected = hourly.where(F.col("local_date").between(start, end)).select(*HISTORY_COLUMNS)
     return selected.orderBy("hour_utc").toPandas()
 
@@ -148,6 +152,30 @@ def correlation_matrix(
     return pd.DataFrame(matrix, index=list(columns), columns=list(columns))
 
 
+def available_correlation_columns(spark: SparkSession, paths: DataPaths, columns: Sequence[str]) -> list[str]:
+    """Keep variables with sufficient non-null, nonconstant data instead of requiring absent sources."""
+    hourly = _hourly(spark, paths)
+    if hourly is None:
+        return []
+    summary = hourly.agg(
+        *[
+            expression
+            for column in columns
+            for expression in (
+                F.count(column).alias(f"{column}_n"),
+                F.stddev_pop(column).alias(f"{column}_std"),
+            )
+        ]
+    ).first()
+    return [
+        column
+        for column in columns
+        if summary[f"{column}_n"] >= 24
+        and summary[f"{column}_std"] is not None
+        and summary[f"{column}_std"] > 0
+    ]
+
+
 def live_readings(spark: SparkSession, paths: DataPaths, last_hours: int = 6) -> pd.DataFrame:
     """Return the streamed 5-minute readings of the last ``last_hours`` before the newest one."""
     path = paths.stream_output / "readings"
@@ -164,11 +192,69 @@ def live_readings(spark: SparkSession, paths: DataPaths, last_hours: int = 6) ->
 def live_windows(spark: SparkSession, paths: DataPaths) -> pd.DataFrame:
     """Return the latest state of every streamed window, newest first."""
     path = paths.stream_output / "windows"
-    if not path.exists() or not any(path.glob("batch_id=*")):
+    batches = completed_batches(path)
+    if not batches:
         return pd.DataFrame(columns=list(LIVE_WINDOW_COLUMNS))
     rank = F.row_number().over(Window.partitionBy("window_start").orderBy(F.desc("batch_id")))
-    latest = spark.read.parquet(str(path)).withColumn("rank", rank).where("rank = 1")
+    latest = (
+        spark.read.option("basePath", str(path)).parquet(*batches).withColumn("rank", rank).where("rank = 1")
+    )
     return latest.select(*LIVE_WINDOW_COLUMNS).orderBy(F.desc("window_start")).toPandas()
+
+
+def live_predictions(spark: SparkSession, paths: DataPaths) -> pd.DataFrame:
+    """Return at most 48 hourly monitoring states, with each hour's newest micro-batch."""
+    path = paths.stream_output / "hourly"
+    batches = completed_batches(path)
+    if not batches:
+        return pd.DataFrame()
+    rank = F.row_number().over(Window.partitionBy("hour_utc").orderBy(F.desc("batch_id")))
+    return (
+        spark.read.option("basePath", str(path))
+        .parquet(*batches)
+        .withColumn("rank", rank)
+        .where("rank = 1")
+        .drop("rank")
+        .orderBy(F.desc("hour_utc"))
+        .limit(48)
+        .toPandas()
+    )
+
+
+def model_predictions(spark: SparkSession, paths: DataPaths, split: str) -> pd.DataFrame:
+    """Return a bounded evaluation sample for charts, never the unaggregated raw history."""
+    path = paths.models / "demand" / "predictions"
+    if not has_parquet(path):
+        return pd.DataFrame()
+    return (
+        spark.read.parquet(str(path))
+        .where(F.col("split") == split)
+        .orderBy(F.desc("hour_utc"))
+        .limit(2000)
+        .toPandas()
+        .sort_values("hour_utc")
+    )
+
+
+def worst_model_errors(spark: SparkSession, paths: DataPaths, split: str) -> pd.DataFrame:
+    """Select the ten largest evaluation residuals in Spark before displaying them."""
+    return (
+        spark.read.parquet(str(paths.models / "demand" / "predictions"))
+        .where(F.col("split") == split)
+        .orderBy(F.abs("demand_error_mw").desc())
+        .select(
+            "hour_utc",
+            "demand_mw",
+            "expected_demand_mw",
+            "peninsular_forecast_mw",
+            "demand_error_mw",
+            "temperature_c",
+            "is_holiday",
+            "is_weekend",
+        )
+        .limit(10)
+        .toPandas()
+    )
 
 
 def minutes_since(moment: pd.Timestamp | None, now: datetime) -> float | None:
@@ -183,12 +269,25 @@ def minutes_since(moment: pd.Timestamp | None, now: datetime) -> float | None:
 
 def stream_mode(paths: DataPaths) -> str:
     """Return ``live``, ``replay`` or ``none`` from the newest file in the REE landing folder."""
+    if paths.stream_name is not None:
+        return paths.stream_name
     folder = paths.landing / REE_LANDING
     files = list(folder.glob("*.jsonp")) if folder.exists() else []
     if not files:
         return "none"
     newest = max(files, key=lambda path: path.stat().st_mtime)
     return "live" if LIVE_CAPTURE_PREFIX.match(newest.name) else "replay"
+
+
+def historical_days(spark: SparkSession, paths: DataPaths) -> list[date]:
+    """Return a bounded list of available local dates for the dashboard selector."""
+    hourly = _hourly(spark, paths)
+    if hourly is None:
+        return []
+    return [
+        row.local_date
+        for row in hourly.select("local_date").distinct().orderBy(F.desc("local_date")).limit(3000).collect()
+    ]
 
 
 def replay_notice(paths: DataPaths, readings: pd.DataFrame) -> str | None:

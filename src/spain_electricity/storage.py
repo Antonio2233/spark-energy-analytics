@@ -11,3 +11,12 @@ def has_files(folder: Path, pattern: str) -> bool:
 def has_parquet(folder: Path) -> bool:
     """Return True when ``folder`` is a dataset with at least one Parquet part."""
     return has_files(folder, "*.parquet")
+
+
+def completed_batches(folder: Path) -> list[str]:
+    """Return committed foreachBatch folders, excluding an in-progress first write."""
+    return [
+        str(path)
+        for path in sorted(folder.glob("batch_id=*"))
+        if (path / "_SUCCESS").exists() and has_parquet(path)
+    ]

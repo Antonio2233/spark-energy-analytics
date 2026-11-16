@@ -55,7 +55,7 @@ MIBGAS = Source(
 PROJECT = Source(
     "Computed in this project",
     None,
-    "spain_electricity.features and spain_electricity.national_holidays",
+    "spain_electricity.features, national_holidays, models and desk",
 )
 SOURCES = (REE_FEED, REDATA, OPEN_METEO_ARCHIVE, OPEN_METEO_CURRENT, MIBGAS, PROJECT)
 
@@ -220,7 +220,73 @@ TECHNOLOGIES = (
     ),
 )
 
+REE_FORECAST = Source(
+    "REE · peninsular demand forecast",
+    "https://demanda.ree.es/visiona/home",
+    "demanda.ree.es/WSvisionaMovilesPeninsulaRest/resources/prevProgPeninsula, field pre",
+)
+SOURCES = (*SOURCES, REE_FORECAST)
+VARIABLES = (
+    *VARIABLES,
+    Entry(
+        "peninsular_forecast_mw",
+        "REE peninsular forecast",
+        "MW",
+        "REE's pre series forecasts the same peninsular system as demand_mw.",
+        REE_FORECAST,
+    ),
+    Entry(
+        "expected_demand_mw",
+        "Spark ML estimate",
+        "MW",
+        "Hourly demand estimated from contemporaneous five-city temperature and calendar.",
+        PROJECT,
+    ),
+)
+
+VARIABLES = (
+    *VARIABLES,
+    Entry(
+        "renewable_mw",
+        "Renewable output",
+        "MW",
+        "Wind, PV, solar thermal and hydro output inferred from the stream's renewable share times demand.",
+        PROJECT,
+    ),
+    Entry(
+        "residual_demand_mw",
+        "Residual demand",
+        "MW",
+        "Demand minus wind, PV, solar thermal and hydro; it is not a measure of unmet demand.",
+        PROJECT,
+    ),
+    Entry(
+        "combined_cycle_share",
+        "Combined cycle / load",
+        "%",
+        "Combined-cycle output divided by demand; this excludes other technologies that may also burn gas.",
+        PROJECT,
+    ),
+    Entry(
+        "fuel_cost_eur_mwh",
+        "Fuel cost equivalent",
+        "€/MWh electric",
+        "Daily MIBGAS gas price divided by user-selected conversion efficiency on the same energy basis. "
+        "Scenario only; CO₂ and nonfuel costs are excluded.",
+        PROJECT,
+    ),
+    Entry(
+        "fuel_spread_eur_mwh",
+        "Fuel-only spread",
+        "€/MWh electric",
+        "Hourly spot delivery price minus the fuel cost scenario. "
+        "It is not net profit or a clean spark spread.",
+        PROJECT,
+    ),
+)
+
 DATASETS = {
+    "peninsular_forecast": ("REE's peninsular demand forecast, every 5 minutes", REE_FORECAST),
     "generation": ("Demand and generation mix, every 5 minutes", REE_FEED),
     "demand_forecast": ("Actual, forecast and scheduled national demand, every 5 minutes", REDATA),
     "market_price": ("Day-ahead market price and PVPC", REDATA),
@@ -231,6 +297,30 @@ DATASETS = {
 
 # Dataset columns that are not series of their own: keys, calendar fields and stream bookkeeping.
 ATTRIBUTES = {
+    "generation_fraction": (
+        "%",
+        "Share of positive output across the eight tracked technologies, not share of demand.",
+    ),
+    "peak_demand_mw": ("MW", "Highest observed demand within the selected desk time window."),
+    "peninsular_forecast_mw": (
+        "MW",
+        "REE's peninsular forecast (pre from prevProgPeninsula); the demand model baseline.",
+    ),
+    "expected_demand_mw": (
+        "MW",
+        "Hourly demand estimated by Spark ML from contemporaneous temperature and calendar.",
+    ),
+    "demand_error_mw": ("MW", "Observed demand minus the model's expected demand; signed residual."),
+    "alert_threshold_mw": (
+        "MW",
+        "99th percentile of absolute 2025 validation errors; never fitted on test errors.",
+    ),
+    "demand_alert": (
+        "",
+        "True when a complete hour exceeds the validation-calibrated absolute error threshold.",
+    ),
+    "prediction_status": ("", "missing_weather, provisional (fewer than 12 readings), or complete."),
+    "split": ("", "Chronological evaluation split: validation (2025) or test (2026)."),
     "ts_utc": ("", "Time of the reading, in UTC."),
     "hour_utc": ("", "Start of the hour, in UTC."),
     "local_date": ("", "Date in Spanish local time (Europe/Madrid)."),
@@ -261,12 +351,12 @@ ATTRIBUTES = {
         "MW",
         "Net balance of the exchanges with neighbouring systems. Its sign convention has not been checked.",
     ),
-    "window_start": ("", "Start of the 15-minute window, in UTC."),
-    "window_end": ("", "End of the 15-minute window, in UTC."),
+    "window_start": ("", "Start of the event-time window, in UTC."),
+    "window_end": ("", "End of the event-time window, in UTC."),
     "avg_demand_mw": ("MW", "Mean demand of the readings in the window."),
     "max_demand_mw": ("MW", "Highest demand reading in the window."),
     "avg_renewable_share": ("%", "Mean renewable share of the readings in the window."),
-    "n_readings": ("", "Readings that fell in the window: 3 when it is complete."),
+    "n_readings": ("", "Unique readings in the window: 3 per complete quarter-hour, 12 per complete hour."),
     "batch_id": ("", "Micro-batch that wrote this version of the window; the UI keeps the latest one."),
 }
 

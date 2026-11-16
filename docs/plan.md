@@ -75,7 +75,7 @@ flowchart LR
 ## Planned extensions
 
 - Integration of several sources: REE, Open-Meteo, MIBGAS and calendar.
-- Kafka for real-time ingestion (iteration 3, if time allows).
+- File-based real-time ingestion; Kafka is out of scope by team decision.
 - Documented AI-assisted development: `AGENTS.md`, a Python guide with unit and integration tests, and GitHub Actions.
 
 ## Schedule
@@ -84,7 +84,7 @@ flowchart LR
 |---|---|---|---|
 | 1 | 3–10 Nov | Download the history to Parquet; first correlations and charts | Download script and first streaming read with windows; repository and `AGENTS.md` |
 | 2 | 10–17 Nov | Features (temperature, calendar, renewable share); demand and price pipelines; KMeans | Join with temperature and gas; apply a first model |
-| 3 | 17–24 Nov | Validation and test on 2026; interpretation of results | Alerts, replay mode and Kafka; tests and continuous integration |
+| 3 | 17–24 Nov | Validation and test on 2026; interpretation of results | Alerts and replay mode; tests and continuous integration |
 | Final | 24 Nov–1 Dec | Integration, demo and presentation | Integration, demo and presentation |
 
 ## Risks

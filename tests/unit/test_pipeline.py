@@ -14,6 +14,7 @@ def test_download_jobs_per_source(paths):
         "redata_price": 1,
         "open_meteo": 5,
         "mibgas": 1,
+        "ree_forecast": 31,
     }
 
 

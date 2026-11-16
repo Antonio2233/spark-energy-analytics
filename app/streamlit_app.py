@@ -4,14 +4,15 @@ Run with:
     uv run streamlit run app/streamlit_app.py
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-from spain_electricity import catalog, charts, views
+from spain_electricity import catalog, charts, desk_ui, runtime_ui, views
 from spain_electricity.config import DataPaths
+from spain_electricity.model_ui import render_models
 from spain_electricity.spark_session import get_spark
 
 NO_DATA = "No data yet: run scripts/download_history.py and scripts/ingest.py"
@@ -84,12 +85,38 @@ def dataset_folders(data_paths: DataPaths) -> dict[str, Path]:
     folders = {name: data_paths.processed / name for name in views.DATASETS}
     folders["stream readings (5-minute)"] = data_paths.stream_output / "readings"
     folders["stream windows (15-minute)"] = data_paths.stream_output / "windows"
+    folders["stream hourly demand estimates"] = data_paths.stream_output / "hourly"
     return folders
 
 
-st.title("Spain electricity: demand, generation mix and price")
-st.caption("Red Eléctrica · Open-Meteo · MIBGAS — processed with Spark, shown with Streamlit. Times are UTC.")
-status_tab, history_tab, live_tab, analysis_tab = st.tabs(["Data status", "History", "Live", "Analysis"])
+desk_ui.apply_style()
+with st.sidebar:
+    st.html('<div class="desk-brand">IBERIA<span>.</span></div><div class="desk-eyebrow">ENERGY DESK</div>')
+    st.caption("Peninsular power · market and system intelligence")
+    st.divider()
+    source_selection = runtime_ui.source_selector(spark, paths)
+    st.divider()
+    observation_hours = st.selectbox(
+        "Observation window", [6, 12, 24, 48], index=2, format_func=lambda value: f"Last {value} hours"
+    )
+    efficiency = (
+        st.slider(
+            "Conversion efficiency (%)",
+            40,
+            65,
+            55,
+            help="Fuel-only scenario on the gas quote's energy basis; excludes CO₂ and operating costs.",
+        )
+        / 100
+    )
+    st.caption("The observation window follows the newest processed reading, including in replay mode.")
+    st.divider()
+    st.caption("REE · Open-Meteo · MIBGAS")
+    st.caption("Spark ML + Structured Streaming")
+
+live_tab, history_tab, analysis_tab, models_tab, status_tab = st.tabs(
+    ["Live", "History", "Analysis", "Models", "Data status"]
+)
 status = cached_status(spark, root)
 hourly_row = status.set_index("dataset").loc["hourly_features"]
 has_history = int(hourly_row["rows"]) > 0
@@ -120,7 +147,7 @@ with status_tab:
     st.caption(f"Data folder: {root}")
     st.subheader("Attributes of each dataset")
     st.caption("The columns Spark finds in each Parquet dataset, with their type, unit and meaning.")
-    for name, folder in dataset_folders(paths).items():
+    for name, folder in dataset_folders(source_selection.paths).items():
         with st.expander(name):
             attributes = cached_attributes(spark, str(folder))
             if attributes.empty:
@@ -166,14 +193,21 @@ def render_history(start, end) -> None:
     """Render the History charts for a local date range."""
     theme = chart_theme()
     history = views.hourly_history(spark, paths, start, end)
-    demand_series = {key: catalog.label(key) for key in ("actual_demand_mw", "forecast_demand_mw")}
+    if history.empty:
+        st.info("No observations in this interval. The compact dataset contains sampled seasonal blocks.")
+        return
+    demand_series = {
+        key: catalog.label(key)
+        for key in ("demand_mw", "peninsular_forecast_mw")
+        if history[key].notna().any()
+    }
     st.altair_chart(
         charts.line_chart(
             long_format(history, "hour_utc", demand_series, "mw"),
             x="hour_utc",
             y="mw",
-            title="Demand: actual vs REE forecast",
-            subtitle="Hourly means of REE's REData series, so both measure the same demand",
+            title="Peninsular demand & REE forecast",
+            subtitle="Hourly means for the same peninsular system; forecast only where downloaded",
             y_title="MW",
             domain=list(demand_series.values()),
             theme=theme,
@@ -186,22 +220,29 @@ def render_history(start, end) -> None:
         list(charts.TECHNOLOGY_LABELS),
         "Values are the hourly mean power of each technology on the peninsular system, in MW.",
     )
-    price_series = {key: catalog.label(key) for key in ("spot_price_eur_mwh", "pvpc_eur_mwh")}
-    st.altair_chart(
-        charts.line_chart(
-            long_format(history, "hour_utc", price_series, "eur_mwh"),
-            x="hour_utc",
-            y="eur_mwh",
-            title="Electricity price",
-            subtitle="Wholesale day-ahead price and the regulated consumer price, hourly means",
-            y_title="€/MWh",
-            domain=list(price_series.values()),
-            theme=theme,
-            value_format=",.1f",
-        ),
-        width="stretch",
-    )
-    explain(list(price_series))
+    price_series = {
+        key: catalog.label(key)
+        for key in ("spot_price_eur_mwh", "pvpc_eur_mwh")
+        if history[key].notna().any()
+    }
+    if price_series:
+        st.altair_chart(
+            charts.line_chart(
+                long_format(history, "hour_utc", price_series, "eur_mwh"),
+                x="hour_utc",
+                y="eur_mwh",
+                title="Electricity delivery prices",
+                subtitle="Hourly means, where market data is available",
+                y_title="€/MWh",
+                domain=list(price_series.values()),
+                theme=theme,
+                value_format=",.1f",
+            ),
+            width="stretch",
+        )
+        explain(list(price_series))
+    else:
+        st.caption("Price history is not downloaded for these dates; demand and generation remain available.")
     with st.expander("Show hourly data"):
         st.dataframe(
             history.round({"demand_mw": 0, "actual_demand_mw": 0, "forecast_demand_mw": 0}),
@@ -247,70 +288,27 @@ with history_tab:
             render_history(*selection)
 
 
-@st.fragment(run_every=timedelta(seconds=30))
+@st.fragment(run_every=timedelta(seconds=10))
 def live_panel() -> None:
-    """Render the streaming output; re-runs every 30 seconds."""
-    readings = views.live_readings(spark, paths)
-    if readings.empty:
-        st.info(NO_STREAM)
+    """Keep the selected source alive and refresh its isolated dashboard every ten seconds."""
+    connection = runtime_ui.connection_status(source_selection)
+    if source_selection.real_time and not connection.ready:
         return
-    now = datetime.now(UTC)
-    notice = views.replay_notice(paths, readings)
-    if notice:
-        st.info(notice)
-    latest = readings.iloc[-1]
-    first, second, third = st.columns(3)
-    first.metric("Latest reading (UTC)", pd.Timestamp(latest.ts_utc).strftime("%a %d %b %H:%M"))
-    second.metric("Demand", f"{latest.demand_mw:,.0f} MW")
-    third.metric("Renewable share", f"{latest.renewable_share:.0%}")
-    warning = views.stale_warning(paths, readings, now)
-    if warning:
-        st.warning(warning)
-    elif notice is None:
-        age = views.minutes_since(latest.ts_utc, now)
-        st.caption(f"Newest reading is {age:.0f} min old" if age is not None else "")
-    st.altair_chart(
-        charts.line_chart(
-            readings.assign(series=catalog.label("demand_mw")),
-            x="ts_utc",
-            y="demand_mw",
-            title="Streamed demand, every 5 minutes",
-            subtitle="The last 6 hours that Spark Structured Streaming has processed",
-            y_title="MW",
-            domain=[catalog.label("demand_mw")],
-            theme=chart_theme(),
-            time_format=charts.HOUR_FORMAT,
-        ),
-        width="stretch",
-    )
-    explain(
-        ["demand_mw", "renewable_share"],
-        "The **15-minute windows** below group the readings of each quarter of an hour: the mean and "
-        "the peak demand, the mean renewable share, and how many readings arrived (3 when complete).",
-    )
-    st.markdown("**15-minute windows** computed by the stream (newest first)")
-    windows = views.live_windows(spark, paths).head(24)
-    st.dataframe(
-        windows.round({"avg_demand_mw": 0, "max_demand_mw": 0}),
-        hide_index=True,
-        width="stretch",
-        column_config={
-            "window_start": st.column_config.DatetimeColumn("Window start (UTC)", format=TIME_FORMAT),
-            "avg_demand_mw": st.column_config.NumberColumn("Mean demand (MW)", format="localized"),
-            "max_demand_mw": st.column_config.NumberColumn("Peak demand (MW)", format="localized"),
-            "avg_renewable_share": st.column_config.NumberColumn("Renewable share", format="percent"),
-            "n_readings": st.column_config.NumberColumn("Readings (of 3)"),
-        },
+    desk_ui.render_live(
+        spark,
+        source_selection.paths,
+        observation_hours,
+        efficiency,
+        historical_day=source_selection.historical_day,
     )
 
 
 with live_tab:
-    st.caption(
-        "Output of the streaming job (scripts/run_stream.py): Spark reads each file that lands in "
-        "data/stream/landing. It shows today's data while scripts/capture_realtime.py is running, or past "
-        "days replayed with scripts/replay_history.py."
-    )
     live_panel()
+
+
+with models_tab:
+    render_models(spark, paths, chart_theme())
 
 with analysis_tab:
     st.caption("First look at what drives demand and price, over the whole hourly table.")
@@ -324,18 +322,19 @@ with analysis_tab:
             ["demand_mw", "temperature_c", "day_type"],
             "Each dot is the mean of one local day. The trend is a parabola fitted to each group of days.",
         )
-        matrix = views.correlation_matrix(spark, paths, CORRELATION_COLUMNS)
+        available = views.available_correlation_columns(spark, paths, CORRELATION_COLUMNS)
+        matrix = views.correlation_matrix(spark, paths, available) if len(available) >= 2 else pd.DataFrame()
         if matrix.empty:
             st.info("Not enough complete hours for a correlation matrix yet.")
         else:
             st.altair_chart(charts.correlation_heatmap(matrix, theme), width="stretch")
             explain(
-                CORRELATION_COLUMNS,
-                "Pearson r is computed over every hour that has all seven values, with Spark ML's "
+                available,
+                "Pearson r uses hours with all selected variables present, with Spark ML's "
                 "`Correlation`. It measures a linear relation, not a cause.",
             )
             with st.expander("Show correlation table"):
-                labels = [charts.VARIABLE_LABELS[column] for column in CORRELATION_COLUMNS]
+                labels = [charts.VARIABLE_LABELS[column] for column in available]
                 st.dataframe(
                     matrix.set_axis(labels, axis=0).set_axis(labels, axis=1).round(2), width="stretch"
                 )
