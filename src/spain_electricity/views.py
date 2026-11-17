@@ -9,6 +9,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 import pandas as pd
+import streamlit as st
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.stat import Correlation
 from pyspark.sql import SparkSession
@@ -42,7 +43,6 @@ MIX_TECHNOLOGIES = {
     "coal": "coal_mw",
     "cogeneration_other": "cogeneration_other_mw",
 }
-LIVE_READING_COLUMNS = ("ts_utc", "demand_mw", "renewable_share")
 LIVE_WINDOW_COLUMNS = ("window_start", "avg_demand_mw", "max_demand_mw", "avg_renewable_share", "n_readings")
 STALE_MINUTES = 20
 # The capture lands a file every 5 minutes; three missed captures mean it is not running.
@@ -176,37 +176,38 @@ def available_correlation_columns(spark: SparkSession, paths: DataPaths, columns
     ]
 
 
-def live_readings(spark: SparkSession, paths: DataPaths, last_hours: int = 6) -> pd.DataFrame:
-    """Return the streamed 5-minute readings of the last ``last_hours`` before the newest one."""
-    path = paths.stream_output / "readings"
-    if not has_parquet(path):
-        return pd.DataFrame(columns=list(LIVE_READING_COLUMNS))
-    readings = spark.read.parquet(str(path)).select(*LIVE_READING_COLUMNS)
-    newest = readings.agg(F.max("ts_utc")).first()[0]
-    if newest is None:
-        return pd.DataFrame(columns=list(LIVE_READING_COLUMNS))
-    recent = readings.where(F.col("ts_utc") > F.lit(newest) - F.expr(f"INTERVAL {int(last_hours)} HOURS"))
-    return recent.orderBy("ts_utc").toPandas()
+def _batch_versions(path: Path) -> tuple[tuple[str, int], ...]:
+    return tuple((batch, (Path(batch) / "_SUCCESS").stat().st_mtime_ns) for batch in completed_batches(path))
+
+
+@st.cache_data(max_entries=16, ttl=60, show_spinner=False)
+def _latest_stream_rows(
+    _spark: SparkSession, root: str, versions: tuple, key: str, columns: tuple
+) -> pd.DataFrame:
+    """Cache bounded Spark results until committed batches change, independently for each sink."""
+    batches = [batch for batch, _ in versions]
+    latest = latest_per_key(_spark.read.option("basePath", root).parquet(*batches), key)
+    if columns:
+        latest = latest.select(*columns)
+    return latest.orderBy(F.desc(key)).limit(192).toPandas()
 
 
 def live_windows(spark: SparkSession, paths: DataPaths) -> pd.DataFrame:
-    """Return the latest state of every streamed window, newest first."""
+    """Return the latest 192 quarter-hour windows without rereading unchanged batches."""
     path = paths.stream_output / "windows"
-    batches = completed_batches(path)
-    if not batches:
+    versions = _batch_versions(path)
+    if not versions:
         return pd.DataFrame(columns=list(LIVE_WINDOW_COLUMNS))
-    latest = latest_per_key(spark.read.option("basePath", str(path)).parquet(*batches), "window_start")
-    return latest.select(*LIVE_WINDOW_COLUMNS).orderBy(F.desc("window_start")).toPandas()
+    return _latest_stream_rows(spark, str(path.resolve()), versions, "window_start", LIVE_WINDOW_COLUMNS)
 
 
 def live_predictions(spark: SparkSession, paths: DataPaths) -> pd.DataFrame:
-    """Return at most 48 hourly monitoring states, with each hour's newest micro-batch."""
+    """Return 48 hourly states, reusing results while committed batch versions are unchanged."""
     path = paths.stream_output / "hourly"
-    batches = completed_batches(path)
-    if not batches:
+    versions = _batch_versions(path)
+    if not versions:
         return pd.DataFrame()
-    latest = latest_per_key(spark.read.option("basePath", str(path)).parquet(*batches), "hour_utc")
-    return latest.orderBy(F.desc("hour_utc")).limit(48).toPandas()
+    return _latest_stream_rows(spark, str(path.resolve()), versions, "hour_utc", ()).head(48)
 
 
 def model_predictions(spark: SparkSession, paths: DataPaths, split: str) -> pd.DataFrame:
@@ -276,19 +277,6 @@ def historical_days(spark: SparkSession, paths: DataPaths) -> list[date]:
         row.local_date
         for row in hourly.select("local_date").distinct().orderBy(F.desc("local_date")).limit(3000).collect()
     ]
-
-
-def replay_notice(paths: DataPaths, readings: pd.DataFrame) -> str | None:
-    """Return, while replaying, which day the readings come from and how to follow today's data instead."""
-    if stream_mode(paths) != "replay" or readings.empty:
-        return None
-    newest = pd.Timestamp(readings["ts_utc"].max())
-    return (
-        f"Replayed history, not today's data: the newest reading is from {newest:%d %b %Y}, and nothing is "
-        "capturing REE live. To follow today's data, empty data/stream and run "
-        "`uv run python scripts/capture_realtime.py` and `uv run python scripts/run_stream.py`, each in its "
-        "own terminal; new readings then appear here within a few minutes."
-    )
 
 
 def _newest_mtime(folder: Path, pattern: str = "*") -> float | None:

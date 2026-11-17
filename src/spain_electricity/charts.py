@@ -306,7 +306,7 @@ DESK = ChartTheme(
 )
 
 
-def desk_demand_chart(timeline: pd.DataFrame) -> alt.LayerChart:
+def desk_demand_chart(timeline: pd.DataFrame, theme: ChartTheme = DESK) -> alt.LayerChart:
     """Compare 5-minute observations with hourly estimates on a common MW axis."""
     names = {
         "demand_mw": catalog.label("demand_mw"),
@@ -327,13 +327,13 @@ def desk_demand_chart(timeline: pd.DataFrame) -> alt.LayerChart:
         title="Demand & expectations",
         y_title="MW",
         domain=list(names.values()),
-        theme=DESK,
+        theme=theme,
         time_format=HOUR_FORMAT,
         subtitle="Observed every 5 min · ML and REE are hourly estimates / forecasts",
     )
 
 
-def desk_mix_area(timeline: pd.DataFrame) -> alt.Chart:
+def desk_mix_area(timeline: pd.DataFrame, theme: ChartTheme = DESK) -> alt.Chart:
     """Show the tracked generation stack; it is not forced to equal measured demand."""
     columns = {f"{key}_mw": label for key, label in TECHNOLOGY_LABELS.items()}
     data = timeline[["ts_utc", *columns]].rename(columns=columns)
@@ -346,7 +346,7 @@ def desk_mix_area(timeline: pd.DataFrame) -> alt.Chart:
         .encode(
             x=alt.X("ts_utc:T", axis=_time_axis(HOUR_FORMAT)),
             y=alt.Y("gw:Q", stack="zero", title="GW · tracked generation"),
-            color=_color(list(columns.values()), DESK, columns=4),
+            color=_color(list(columns.values()), theme, columns=4),
             tooltip=[
                 alt.Tooltip("ts_utc:T", title="UTC", format=TOOLTIP_TIME_FORMAT),
                 alt.Tooltip("series:N", title="Technology"),
@@ -355,23 +355,23 @@ def desk_mix_area(timeline: pd.DataFrame) -> alt.Chart:
         )
         .properties(
             height=280,
-            title=_title("Generation stack", "Positive output of eight tracked technologies", DESK),
+            title=_title("Generation stack", "Positive output of eight tracked technologies", theme),
         )
     )
 
 
-def desk_mix_ring(mix: pd.DataFrame) -> alt.LayerChart:
+def desk_mix_ring(mix: pd.DataFrame, theme: ChartTheme = DESK) -> alt.LayerChart:
     """Show current shares of tracked output, with demand-based renewables kept separate."""
     data = mix.assign(series=mix.technology.map(TECHNOLOGY_LABELS))
     arcs = (
         alt.Chart(data)
-        .mark_arc(innerRadius=44, outerRadius=64, stroke=DESK.surface, strokeWidth=2)
+        .mark_arc(innerRadius=44, outerRadius=64, stroke=theme.surface, strokeWidth=2)
         .encode(
             theta=alt.Theta("mw:Q"),
             color=alt.Color(
                 "series:N",
                 title=None,
-                scale=alt.Scale(domain=list(TECHNOLOGY_LABELS.values()), range=list(DESK.slots)),
+                scale=alt.Scale(domain=list(TECHNOLOGY_LABELS.values()), range=list(theme.slots)),
                 legend=alt.Legend(
                     orient="right", labelLimit=135, labelFontSize=10, symbolSize=65, rowPadding=2
                 ),
@@ -386,15 +386,17 @@ def desk_mix_ring(mix: pd.DataFrame) -> alt.LayerChart:
     total = float(mix.mw.sum()) / 1000
     center = (
         alt.Chart(pd.DataFrame({"label": [f"{total:.1f} GW"]}))
-        .mark_text(fontSize=19, fontWeight=600, color=DESK.ink)
+        .mark_text(fontSize=19, fontWeight=600, color=theme.ink)
         .encode(text="label:N")
     )
     return alt.layer(arcs, center).properties(
-        height=280, title=_title("Supply mix", "Shares of tracked generation", DESK)
+        height=280, title=_title("Supply mix", "Shares of tracked generation", theme)
     )
 
 
-def desk_price_profile(prices: pd.DataFrame, fuel_cost: float | None) -> alt.LayerChart:
+def desk_price_profile(
+    prices: pd.DataFrame, fuel_cost: float | None, theme: ChartTheme = DESK
+) -> alt.LayerChart:
     """Display published day-ahead delivery prices, including negative prices and future delivery hours."""
     bars = (
         alt.Chart(prices)
@@ -403,7 +405,7 @@ def desk_price_profile(prices: pd.DataFrame, fuel_cost: float | None) -> alt.Lay
             x=alt.X("hour_utc:T", axis=_time_axis(HOUR_FORMAT), title="Delivery hour · UTC"),
             y=alt.Y("spot_price_eur_mwh:Q", title="€/MWh"),
             color=alt.condition(
-                "datum.spot_price_eur_mwh < 0", alt.value(DESK.slots[1]), alt.value(DESK.slots[0])
+                "datum.spot_price_eur_mwh < 0", alt.value(theme.slots[1]), alt.value(theme.slots[0])
             ),
             tooltip=[
                 alt.Tooltip("hour_utc:T", title="Delivery UTC", format=TOOLTIP_TIME_FORMAT),
@@ -417,13 +419,13 @@ def desk_price_profile(prices: pd.DataFrame, fuel_cost: float | None) -> alt.Lay
     legend = (
         alt.Chart(pd.DataFrame({"series": key, "dummy": [0] * len(key)}))
         .mark_point(opacity=0)
-        .encode(color=_color(key, DESK))
+        .encode(color=_color(key, theme))
     )
     layers = [bars, legend]
     if fuel_cost is not None:
         layers.append(
             alt.Chart(pd.DataFrame({"value": [fuel_cost]}))
-            .mark_rule(strokeDash=[6, 4], color=DESK.slots[1])
+            .mark_rule(strokeDash=[6, 4], color=theme.slots[1])
             .encode(y="value:Q")
         )
     return alt.layer(*layers).properties(
@@ -431,12 +433,12 @@ def desk_price_profile(prices: pd.DataFrame, fuel_cost: float | None) -> alt.Lay
         title=_title(
             "Day-ahead delivery curve",
             "Published hourly means · includes remaining delivery hours, not future trades",
-            DESK,
+            theme,
         ),
     )
 
 
-def desk_price_scatter(hourly: pd.DataFrame) -> alt.Chart:
+def desk_price_scatter(hourly: pd.DataFrame, theme: ChartTheme = DESK) -> alt.Chart:
     """Explore co-movement, without claiming causation or predicting a trading return."""
     data = hourly.dropna(subset=["residual_demand_mw", "spot_price_eur_mwh", "renewable_share"])
     return (
@@ -449,7 +451,7 @@ def desk_price_scatter(hourly: pd.DataFrame) -> alt.Chart:
             color=alt.Color(
                 "renewable_share:Q",
                 title="Renewables / demand",
-                scale=alt.Scale(range=[DESK.slots[0], DESK.slots[1]]),
+                scale=alt.Scale(range=[theme.slots[0], theme.slots[1]]),
                 legend=alt.Legend(format=".0%"),
             ),
             tooltip=[
@@ -462,7 +464,7 @@ def desk_price_scatter(hourly: pd.DataFrame) -> alt.Chart:
         .properties(
             height=260,
             title=_title(
-                "Power-price drivers", "One point per observed hour · co-movement, not causation", DESK
+                "Power-price drivers", "One point per observed hour · co-movement, not causation", theme
             ),
         )
     )

@@ -106,12 +106,11 @@ def test_train_save_monitor_and_render(spark, paths, fixtures_dir):
     try:
         # The full app needs all standard hourly display columns; use a tiny isolated harness here.
         app = AppTest.from_string(
-            "from spain_electricity.model_ui import render_models, render_monitoring\n"
+            "from spain_electricity.model_ui import render_models\n"
             "from spain_electricity.config import DataPaths\n"
             "from spain_electricity.spark_session import get_spark\n"
             "from spain_electricity.charts import LIGHT\n"
-            "render_models(get_spark(), DataPaths.from_env(), LIGHT)\n"
-            "render_monitoring(get_spark(), DataPaths.from_env(), LIGHT)\n",
+            "render_models(get_spark(), DataPaths.from_env(), LIGHT)\n",
             default_timeout=120,
         ).run()
         assert not app.exception

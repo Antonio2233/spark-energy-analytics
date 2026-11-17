@@ -84,6 +84,7 @@ def render_live(
     spark: SparkSession, paths: DataPaths, hours: int, efficiency: float, historical_day: date | None = None
 ) -> None:
     """Render the market dashboard, with prominent event time, mode and source coverage."""
+    theme = charts.theme_for(dark=getattr(getattr(st.context, "theme", None), "type", "light") == "dark")
     data = _snapshot(spark, str(paths.root), hours, efficiency, paths.stream_name, historical_day)
     now = datetime.now(UTC)
     age = views.minutes_since(data.asof, now)
@@ -174,15 +175,15 @@ def render_live(
     )
     main, side = st.columns([2.2, 1])
     with main.container(border=True):
-        st.altair_chart(charts.desk_demand_chart(data.timeline), width="stretch")
+        st.altair_chart(charts.desk_demand_chart(data.timeline, theme), width="stretch")
     with side.container(border=True):
         if data.mix.empty:
             st.info("Generation technology detail has not been streamed yet.")
         else:
-            st.altair_chart(charts.desk_mix_ring(data.mix), width="stretch")
+            st.altair_chart(charts.desk_mix_ring(data.mix, theme), width="stretch")
     main, side = st.columns([2.2, 1])
     with main.container(border=True):
-        st.altair_chart(charts.desk_mix_area(data.timeline), width="stretch")
+        st.altair_chart(charts.desk_mix_area(data.timeline, theme), width="stretch")
         st.caption(
             "Stack = tracked positive generation. Renewable share above uses demand as denominator, "
             "so it can exceed 100% during exports. The stack is not a system balance."
@@ -208,7 +209,7 @@ def render_live(
         else:
             cost = s.get("fuel_cost_eur_mwh")
             st.altair_chart(
-                charts.desk_price_profile(data.prices, None if pd.isna(cost) else float(cost)),
+                charts.desk_price_profile(data.prices, None if pd.isna(cost) else float(cost), theme),
                 width="stretch",
             )
     with side.container(border=True):
@@ -225,7 +226,7 @@ def render_live(
     with left.container(border=True):
         usable = data.hourly.dropna(subset=["residual_demand_mw", "spot_price_eur_mwh", "renewable_share"])
         if len(usable) >= 3:
-            st.altair_chart(charts.desk_price_scatter(data.hourly), width="stretch")
+            st.altair_chart(charts.desk_price_scatter(data.hourly, theme), width="stretch")
         else:
             st.info("Price-driver comparison needs at least three matching hourly observations.")
     with right.container(border=True):

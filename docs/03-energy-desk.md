@@ -66,3 +66,9 @@ The efficiency slider is a scenario assumption, not a calibrated plant specifica
 ## Verification
 
 Tests cover exact observation-hour comparisons, daily gas alignment, future price delivery periods, negative prices, unavailable live context, capture throttling/error retention, adaptive correlation selection and rendering with sparse streamed data. Only the trained model is shared in Git; market/history data and live/replay state remain local. Browser screenshots and the temporary visual-test server are local verification tools, not shared environment instructions.
+
+## UI refresh and chart themes
+
+Window and hourly-monitoring views cache bounded results by stream folder and committed batch versions for at most 60 seconds. A new committed batch changes the cache key immediately; empty or unfinished batches are not cached as results. Window results are limited to 192 quarter-hour windows (48 hours), and hourly monitoring to 48 hours. The cache avoids repeated Spark reads on unchanged refreshes, but a new batch still recomputes the latest state over committed batches. This is a UI cache, not incremental stream state.
+
+All Energy Desk charts receive the selected light or dark theme, including titles, the supply-mix center label and delivery-price scenarios.
