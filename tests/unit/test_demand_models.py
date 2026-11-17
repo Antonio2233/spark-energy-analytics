@@ -62,3 +62,9 @@ def test_baseline_pairing_does_not_substitute_national_forecast(spark):
         "demand_mw double, peninsular_forecast_mw double, forecast_demand_mw double",
     )
     assert models.paired_rows(frame).count() == 1
+
+
+def test_real_forecast_fixture_keeps_scheduled_demand(spark, fixtures_dir):
+    rows = ree_forecast.read_raw(spark, fixtures_dir / "ree_forecast").collect()
+    assert rows
+    assert any(row.peninsular_scheduled_mw is not None for row in rows)

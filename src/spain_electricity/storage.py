@@ -2,6 +2,15 @@
 
 from pathlib import Path
 
+from pyspark.sql import DataFrame, Window
+from pyspark.sql import functions as F
+
+
+def latest_per_key(frame: DataFrame, key: str) -> DataFrame:
+    """Select the row from the newest committed batch for each window or hour."""
+    rank = F.row_number().over(Window.partitionBy(key).orderBy(F.desc("batch_id")))
+    return frame.withColumn("_batch_rank", rank).where(F.col("_batch_rank") == 1).drop("_batch_rank")
+
 
 def has_files(folder: Path, pattern: str) -> bool:
     """Return True when ``folder`` holds at least one file matching ``pattern`` (recursively)."""

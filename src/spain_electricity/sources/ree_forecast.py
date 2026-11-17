@@ -21,6 +21,7 @@ SCHEMA = StructType(
                     [
                         StructField("ts", StringType()),
                         StructField("pre", DoubleType()),
+                        StructField("pro", DoubleType()),
                     ]
                 )
             ),
@@ -66,7 +67,10 @@ def read_raw(spark: SparkSession, raw_root: Path) -> DataFrame:
     readings = text.select("file_day", F.explode(payload["valoresPrevistaProgramada"]).alias("r"))
     readings = (
         readings.select(
-            "file_day", F.col("r.ts").alias("ts_label"), F.col("r.pre").alias("peninsular_forecast_mw")
+            "file_day",
+            F.col("r.ts").alias("ts_label"),
+            F.col("r.pre").alias("peninsular_forecast_mw"),
+            F.col("r.pro").alias("peninsular_scheduled_mw"),
         )
         .where(F.substring("ts_label", 1, 10) == F.col("file_day"))
         .drop("file_day")

@@ -39,7 +39,9 @@ def source_selector(spark: SparkSession, paths: DataPaths) -> SourceSelection:
     """Render an immediate source switch and start live work asynchronously when requested."""
     if "desk_viewer_id" not in st.session_state:
         st.session_state.desk_viewer_id = uuid4().hex
-    source = st.radio("Data source", ["Historical", "Real time"], horizontal=True, key="desk_source")
+    source = st.radio(
+        "Data source", ["Historical", "Replay", "Real time"], horizontal=True, key="desk_source"
+    )
     real_time = source == "Real time"
     service = live_service(spark, str(paths.root))
     client_id = st.session_state.desk_viewer_id
@@ -47,7 +49,7 @@ def source_selector(spark: SparkSession, paths: DataPaths) -> SourceSelection:
     day = None
     if real_time:
         st.caption("Connects automatically · captures every 5 min. Historical data stays separate.")
-    else:
+    elif source == "Historical":
         days = _days(spark, str(paths.root))
         if days:
             day = st.selectbox(
@@ -57,8 +59,14 @@ def source_selector(spark: SparkSession, paths: DataPaths) -> SourceSelection:
                 key="desk_historical_day",
             )
         st.caption("Select a downloaded day. Switching back pauses your live-data request.")
+    else:
+        st.caption("Shows the replay stream output. Start the replay and streaming scripts to update it.")
     return SourceSelection(
-        paths.with_stream("live") if real_time else paths, day, real_time, client_id, service
+        paths.with_stream("live" if real_time else "replay") if source != "Historical" else paths,
+        day,
+        real_time,
+        client_id,
+        service,
     )
 
 

@@ -11,12 +11,12 @@ from pathlib import Path
 import pandas as pd
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.stat import Correlation
-from pyspark.sql import SparkSession, Window
+from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 
 from spain_electricity.capture import REE_LANDING
 from spain_electricity.config import DataPaths
-from spain_electricity.storage import completed_batches, has_parquet
+from spain_electricity.storage import completed_batches, has_parquet, latest_per_key
 
 DATASETS = ("generation", "demand_forecast", "market_price", "weather", "gas_price", "hourly_features")
 DATASETS = (*DATASETS, "peninsular_forecast")
@@ -195,10 +195,7 @@ def live_windows(spark: SparkSession, paths: DataPaths) -> pd.DataFrame:
     batches = completed_batches(path)
     if not batches:
         return pd.DataFrame(columns=list(LIVE_WINDOW_COLUMNS))
-    rank = F.row_number().over(Window.partitionBy("window_start").orderBy(F.desc("batch_id")))
-    latest = (
-        spark.read.option("basePath", str(path)).parquet(*batches).withColumn("rank", rank).where("rank = 1")
-    )
+    latest = latest_per_key(spark.read.option("basePath", str(path)).parquet(*batches), "window_start")
     return latest.select(*LIVE_WINDOW_COLUMNS).orderBy(F.desc("window_start")).toPandas()
 
 
@@ -208,17 +205,8 @@ def live_predictions(spark: SparkSession, paths: DataPaths) -> pd.DataFrame:
     batches = completed_batches(path)
     if not batches:
         return pd.DataFrame()
-    rank = F.row_number().over(Window.partitionBy("hour_utc").orderBy(F.desc("batch_id")))
-    return (
-        spark.read.option("basePath", str(path))
-        .parquet(*batches)
-        .withColumn("rank", rank)
-        .where("rank = 1")
-        .drop("rank")
-        .orderBy(F.desc("hour_utc"))
-        .limit(48)
-        .toPandas()
-    )
+    latest = latest_per_key(spark.read.option("basePath", str(path)).parquet(*batches), "hour_utc")
+    return latest.orderBy(F.desc("hour_utc")).limit(48).toPandas()
 
 
 def model_predictions(spark: SparkSession, paths: DataPaths, split: str) -> pd.DataFrame:

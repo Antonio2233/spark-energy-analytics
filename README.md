@@ -37,7 +37,7 @@ There are two independent paths: the batch path processes the downloaded history
 
 ### What must be running
 
-For normal use, run **only the UI**. In the sidebar choose **Data source → Real time** to start capture and Structured Streaming automatically, or **Historical** to select a downloaded day. Startup and errors appear in the app; no additional terminals are needed. The UI live namespace is `data/stream_live`, so switching views preserves the legacy replay and all historical data.
+For normal use, run **only the UI**. In the sidebar choose **Data source → Real time** to start capture and Structured Streaming automatically, or **Historical** to select a downloaded day. Select **Replay** to view the separate CLI replay stream. Startup and errors appear in the app; the replay demo requires the two scripts below. The UI live namespace is `data/stream_live`, so switching views preserves the legacy replay and all historical data.
 
 | To | Run | Notes |
 |---|---|---|
@@ -45,7 +45,7 @@ For normal use, run **only the UI**. In the sidebar choose **Data source → Rea
 | Follow today's data | The UI, then select **Real time** | Capture and streaming start automatically; the event timestamp and source age remain visible |
 | Demo with replayed history | `run_stream.py`, `replay_history.py` and the UI | Replay days later than the newest reading the stream has processed, or empty `data/stream` first |
 
-The standalone capture/replay/stream scripts below remain advanced CLI tools. They are not required for the sidebar source switch. The UI controller pauses when no viewer requests live data; closed browser sessions expire after 90 seconds. It stops only its own queries and keeps checkpoints for the next visit.
+The standalone capture, replay and stream scripts below are advanced CLI tools; Replay requires the replay and stream scripts. The UI controller pauses when no viewer requests live data; closed browser sessions expire after 90 seconds. It stops only its own queries and keeps checkpoints for the next visit.
 
 ## Requirements
 
@@ -59,17 +59,18 @@ uv sync --locked
 uv run --locked streamlit run app/streamlit_app.py --server.port 8501
 ```
 
-The repository includes the [curated historical snapshot and trained model](data/README.md), so a fresh checkout can launch without downloading or retraining. Install Java and uv first; native Mac instructions are in [README_MAC.md](README_MAC.md). Local environments and live/replay checkpoints remain excluded from Git.
+The repository includes the trained model and its evaluation results, but not raw or processed data. Download and ingest the data before using History and the full desk; retraining is not required. Install Java and uv first; native Mac instructions are in [README_MAC.md](README_MAC.md). Local environments and live/replay checkpoints remain excluded from Git.
 
-The UI now opens on **Live**, an Energy Desk with demand, generation mix, electricity/gas references, weather, model estimates and alerts. Use **Data source → Historical / Real time** to choose downloaded history or start current capture automatically. Its mode badge and event timestamp distinguish the views.
+The UI now opens on **Live**, an Energy Desk with demand, generation mix, electricity/gas references, weather, model estimates and alerts. Use **Data source → Historical / Replay / Real time** to choose downloaded history or start current capture automatically. Its mode badge and event timestamp distinguish the views.
 
 ### Small demand-model demonstration
 
-The following commands rebuild the included snapshot; they are optional for normal launch.
+Prepare the compact history and market references on a fresh checkout. The saved model is already included; training is optional.
 
 ```bash
 uv run python scripts/prepare_demand.py
-uv run python scripts/train_demand.py
+uv run python scripts/prepare_desk_market.py --month 2026-10 --forecast-day 2026-10-12
+# Optional: uv run python scripts/train_demand.py
 uv run streamlit run app/streamlit_app.py
 ```
 
@@ -88,14 +89,14 @@ uv run python scripts/ingest.py
 
 Downloads are resumable: a rerun skips files whose period has settled and refreshes those fetched while their day or month was still open.
 
-The models use the full history, from 2021 to yesterday:
+To prepare the full history for final training:
 
 ```bash
 uv run python scripts/download_history.py --start 2021-01-01 --end 2026-11-09
 uv run python scripts/ingest.py
 ```
 
-On 2026-11-10 that was 2,642 files (about 490 MB): the download took 1 h 14 min with no failures, and the ingest 31 s.
+The default sources now also include the peninsular forecast, adding roughly 2,140 daily requests for 2021?2026. On 2026-11-10 the earlier source set was 2,642 files (about 490 MB): the download took 1 h 14 min with no failures, and the ingest 31 s.
 
 ### 2. Streaming
 
@@ -162,4 +163,4 @@ uv run pytest -m integration         # end-to-end Spark, streaming and UI tests
 - `app/`: Streamlit UI.
 - `notebooks/`: thin analysis notebooks over the package.
 - `docs/`: plan and documentation.
-- `data/`: curated raw/processed/model snapshot is shared; local tools and live/replay state are ignored.
+- `data/`: only trained models are shared; raw and processed data, local tools and streaming state are ignored.

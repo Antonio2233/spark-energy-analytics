@@ -306,6 +306,7 @@ ATTRIBUTES = {
         "MW",
         "REE's peninsular forecast (pre from prevProgPeninsula); the demand model baseline.",
     ),
+    "peninsular_scheduled_mw": ("MW", "REE's peninsular scheduled demand (pro from prevProgPeninsula)."),
     "expected_demand_mw": (
         "MW",
         "Hourly demand estimated by Spark ML from contemporaneous temperature and calendar.",

@@ -9,11 +9,17 @@ from pyspark.sql import functions as F
 
 from spain_electricity import models, views
 from spain_electricity.capture import FORECAST_LANDING, PRICE_LANDING, WEATHER_LANDING
-from spain_electricity.config import CITIES, LOCAL_TIMEZONE, DataPaths
-from spain_electricity.features import WEATHER_COLUMNS, add_renewable_share, hourly_mean, national_weather
+from spain_electricity.config import LOCAL_TIMEZONE, DataPaths
+from spain_electricity.features import (
+    WEATHER_COLUMNS,
+    add_renewable_share,
+    complete_weather,
+    hourly_mean,
+    national_weather,
+)
 from spain_electricity.sources import open_meteo, redata, ree_forecast
 from spain_electricity.sources.ree_generation import RAW_TO_COLUMN
-from spain_electricity.storage import completed_batches, has_parquet
+from spain_electricity.storage import completed_batches, has_parquet, latest_per_key
 
 GENERATION = tuple(RAW_TO_COLUMN.values())
 MIX = dict(views.MIX_TECHNOLOGIES)
@@ -151,14 +157,7 @@ def snapshot(
     weather = weather_context(spark, paths, mode)
     national = None
     if weather is not None:
-        complete = (
-            weather.where(F.col("temperature_c").isNotNull())
-            .groupBy("ts_utc")
-            .agg(F.countDistinct("city").alias("n_cities"))
-            .where(F.col("n_cities") == len(CITIES))
-            .select("ts_utc")
-        )
-        national = hourly_mean(national_weather(weather.join(complete, "ts_utc")), "ts_utc", WEATHER_COLUMNS)
+        national = hourly_mean(national_weather(complete_weather(weather)), "ts_utc", WEATHER_COLUMNS)
     timeline = _join_optional(timeline, national, "hour_utc", list(WEATHER_COLUMNS))
     timeline = timeline.withColumn("local_date", F.to_date(F.from_utc_timestamp("ts_utc", LOCAL_TIMEZONE)))
     gas = gas_context(spark, paths, mode)
@@ -177,12 +176,8 @@ def snapshot(
                 "alert_threshold_mw", F.lit(threshold).cast("double")
             )
     elif batches:
-        rank = F.row_number().over(Window.partitionBy("hour_utc").orderBy(F.desc("batch_id")))
-        estimates = (
-            spark.read.option("basePath", str(model_path))
-            .parquet(*batches)
-            .withColumn("rank", rank)
-            .where("rank = 1")
+        estimates = latest_per_key(
+            spark.read.option("basePath", str(model_path)).parquet(*batches), "hour_utc"
         )
     timeline = _join_optional(timeline, estimates, "hour_utc", ["expected_demand_mw", "alert_threshold_mw"])
     timeline = (

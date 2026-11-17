@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 LOCAL_TIMEZONE = "Europe/Madrid"
+ANOMALY_DATES = ("2025-04-28",)
 GAS_PRODUCT = "GDAES_D+1"
 DATA_DIR_ENV = "SPAIN_ELECTRICITY_DATA_DIR"
 REPO_ROOT = Path(__file__).resolve().parents[2]

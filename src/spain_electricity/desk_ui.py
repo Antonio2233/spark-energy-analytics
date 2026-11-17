@@ -45,8 +45,9 @@ h2, h3 { letter-spacing: -.025em; }
 
 
 def apply_style() -> None:
-    """Apply a portable dark desk theme without changing the user's local launch environment."""
-    st.html(STYLE)
+    """Use the desk's dark styling only when the viewer selects the dark theme."""
+    if getattr(getattr(st.context, "theme", None), "type", "light") == "dark":
+        st.html(STYLE)
 
 
 @st.cache_data(ttl=20, show_spinner=False)

@@ -14,7 +14,7 @@ uv run streamlit run app/streamlit_app.py
 
 Preparation downloads the bounded sample and runs ingestion. Downloads are resumable and separated by a 0.5-second pause. `--download-only`, `--days-per-season` (1–7) and `--pause` are available. Training requires at least 100 valid training hours and 24 paired hours in each evaluation split. A one-day sample can be too small or unrepresentative; the four-day default is recommended for this demonstration.
 
-Open **Models** to see selection, metrics, coverage, predictions and the largest errors. Restart an already running UI after changing package code. The curated raw/processed/model snapshot is now shared in Git so a fresh checkout needs no training; local tools and streaming state remain ignored. See [snapshot contents](../data/README.md).
+Open **Models** to see selection, metrics, coverage, predictions and the largest errors. Restart an already running UI after changing package code. The trained model is shared in Git; raw and processed data must be downloaded and ingested locally.
 
 ## Bounded data and audit
 

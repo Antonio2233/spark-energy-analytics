@@ -34,6 +34,7 @@ def setup_service(monkeypatch, paths, *, fail_first=False, lease_seconds=10):
         spark.streams.active.append(query)
         attempts.append(query)
         if fail_first and len(attempts) == 1:
+            query.stop()  # start_stream cleans up any queries it started before raising.
             raise RuntimeError("simulated startup failure")
         output = paths.stream_output / "readings"
         (output / "_spark_metadata").mkdir(parents=True, exist_ok=True)
@@ -108,3 +109,27 @@ def test_partial_startup_is_cleaned_up_and_retry_is_explicit(monkeypatch, paths)
         assert service.status().error is None and len(attempts) == 2
     finally:
         service.close()
+
+
+def test_live_lock_excludes_other_controller_and_releases(monkeypatch, paths):
+    first, spark, _, _, _ = setup_service(monkeypatch, paths)
+    second = live_runtime.LiveService(spark, paths)
+    try:
+        first._acquire_lock()
+        import pytest
+
+        with pytest.raises(RuntimeError, match="Another dashboard"):
+            second._acquire_lock()
+        first._release_lock()
+        second._acquire_lock()
+    finally:
+        first.close()
+        second._release_lock()
+        second.close()
+
+
+def test_refresh_warning_is_retained_during_retry_delay(paths):
+    service = live_runtime.LiveService(SimpleNamespace(), paths)
+    service._gas_retry = time.monotonic() + 60
+    assert service._refresh_gas() is False
+    service.close()

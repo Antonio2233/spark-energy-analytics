@@ -17,7 +17,7 @@ Official installation references: [uv with Homebrew](https://docs.astral.sh/uv/g
 Replace the example path with the location of your checkout. The correct folder contains `pyproject.toml`, `uv.lock`, `app/` and `src/`.
 
 ```bash
-cd "/path/to/Trabajo_Big_Data/spark-energy-analytics"
+cd "/path/to/spark-energy-analytics"
 
 export JAVA_HOME="$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home"
 export PATH="$JAVA_HOME/bin:$PATH"
@@ -39,25 +39,16 @@ The project selects Python 3.13 in `.python-version`; `uv.lock` fixes the depend
 
 Python-management reference: [uv Python installation](https://docs.astral.sh/uv/guides/install-python/).
 
-## 4. Use the included history and trained model
+## 4. Prepare historical and market data
 
-The repository includes a small ready-to-run snapshot in `data/raw`, `data/processed` and `data/models`, together with the exact sample dates and provenance. **Skip downloading and training:** a fresh checkout already has the historical tables, saved model, evaluation metrics and predictions.
-
-Continue directly to step 5. The snapshot occupies about 24 MB before Git compression; the processed tables and saved model/results account for about 3 MB. See [data/README.md](data/README.md) for its contents and training coverage.
-
-### Optional: regenerate the snapshot
-
-Only run these commands if you deliberately want to rebuild or replace the included snapshot:
+The trained demand model and its evaluation results are included; raw and processed data are not. Prepare a compact dataset before using History or the historical desk:
 
 ```bash
 uv run --locked python scripts/prepare_demand.py
 uv run --locked python scripts/prepare_desk_market.py --month 2026-10 --forecast-day 2026-10-12
-uv run --locked python scripts/train_demand.py
 ```
 
-The first command downloads the compact seasonal sample and ingests it with Spark. The second adds the demonstration month's electricity prices, its year's gas reference and one forecast day. The third compares four small demand-model configurations and saves the selected pipeline. The default demand sample contains 96 days and 2,304 hours, rather than the full six-year history. Downloads are resumable.
-
-Inspect **Data status** and **Models** before regenerating anything. Environments, tooling, live captures and streaming checkpoints remain local; only the curated historical snapshot and saved model are shared.
+The first command downloads a seasonal sample and ingests it. The second adds the demonstration market references. Retraining is optional. Downloads need internet access and remain local.
 
 ## 5. Launch the dashboard
 
@@ -81,7 +72,7 @@ Stop the application with **Ctrl+C** in its terminal.
 After the initial installation:
 
 ```bash
-cd "/path/to/Trabajo_Big_Data/spark-energy-analytics"
+cd "/path/to/spark-energy-analytics"
 export JAVA_HOME="$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home"
 export PATH="$JAVA_HOME/bin:$PATH"
 unset SPARK_HOME HADOOP_HOME PYSPARK_PYTHON PYSPARK_DRIVER_PYTHON
@@ -94,7 +85,7 @@ uv run --locked streamlit run app/streamlit_app.py --server.port 8501
 - **Java is missing or has the wrong version:** repeat the Java exports above and check `"$JAVA_HOME/bin/java" -version`.
 - **An import error appears after updating the project:** stop the existing server with Ctrl+C, run `uv sync --locked`, then relaunch. Refreshing the browser alone can leave old Python modules loaded in the server.
 - **Port 8501 is occupied:** stop the earlier dashboard in its terminal. To identify the listener, run `lsof -nP -iTCP:8501 -sTCP:LISTEN`. Keep one dashboard instance per checkout so live checkpoint writers are not duplicated.
-- **History or Models is empty:** check that your checkout includes `data/processed`, `data/models/demand/pipeline` and `data/models/demand/metrics.json`. Update to the shared snapshot version first; regenerating it is optional.
+- **History or Models is empty:** run the preparation commands in step 4, and check that `data/models/demand/pipeline` and `data/models/demand/metrics.json` exist.
 - **Real time is connecting or stale:** inspect the connection message and timestamp. Use **Retry connection** when offered; switching to Historical remains available.
 
 ## Optional checks

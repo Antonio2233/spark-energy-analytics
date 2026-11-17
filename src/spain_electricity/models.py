@@ -13,7 +13,7 @@ from pyspark.ml.regression import LinearRegression, RandomForestRegressor
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
-from spain_electricity.config import DataPaths
+from spain_electricity.config import ANOMALY_DATES, DataPaths
 from spain_electricity.features import HOLIDAY_YEARS, add_calendar
 from spain_electricity.national_holidays import holidays_frame
 
@@ -35,7 +35,10 @@ SPLITS = {"train": (2021, 2024), "validation": (2025, 2025), "test": (2026, 2026
 
 
 def add_model_features(df: DataFrame) -> DataFrame:
-    """Derive features available both historically and at monitoring time; perform no actions."""
+    """Derive model features; the saved demand pipeline was fitted with 18/22 °C bases.
+
+    These bases must remain unchanged when serving that model, despite the original 16/20 plan.
+    """
     working = ~F.col("is_weekend") & ~F.col("is_holiday")
     return (
         df.withColumn("heating_degrees", F.greatest(F.lit(18.0) - F.col("temperature_c"), F.lit(0.0)))
@@ -58,7 +61,7 @@ def valid_hours(df: DataFrame) -> DataFrame:
         & F.col("temperature_c").isNotNull()
         & ~F.isnan("temperature_c")
         & (F.abs(F.col("temperature_c")) < float("inf"))
-        & (F.col("local_date") != F.lit("2025-04-28").cast("date"))
+        & ~F.col("local_date").cast("string").isin(list(ANOMALY_DATES))
     )
 
 

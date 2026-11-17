@@ -24,6 +24,7 @@ def test_desk_renders_streamed_generation_and_unavailable_markets(spark, paths, 
     (landing / "ree_generation_2026-10-11.jsonp").write_text("cb({});")
     monkeypatch.setenv("SPAIN_ELECTRICITY_DATA_DIR", str(paths.root))
     app = AppTest.from_file(str(REPO_ROOT / "app/streamlit_app.py"), default_timeout=180).run()
+    app.radio[0].set_value("Replay").run()
     assert not app.exception
     values = {metric.label: metric.value for metric in app.metric}
     assert values["DEMAND"] == "33.00 GW"

@@ -1,12 +1,13 @@
 """Application-owned live capture and Structured Streaming, with expiring viewer leases."""
 
 import atexit
-import hashlib
 import logging
+import os
 import threading
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from uuid import uuid4
 
 import requests
 from pyspark.sql import SparkSession
@@ -56,8 +57,8 @@ class LiveService:
         self.capture_seconds = capture_seconds
         self.lease_seconds = lease_seconds
         self.poll_seconds = poll_seconds
-        suffix = hashlib.sha256(str(paths.root.resolve()).encode()).hexdigest()[:10]
-        self.prefix = f"ui_live_{suffix}_"
+        self.prefix = f"ui_live_{uuid4().hex}_"
+        self._lock_file = None
         self._condition = threading.Condition(threading.RLock())
         self._clients: dict[str, float] = {}
         self._thread: threading.Thread | None = None
@@ -116,13 +117,13 @@ class LiveService:
             capture.capture_market_once(self.paths, now, session=session)
         return received
 
-    def _refresh_gas(self) -> None:
+    def _refresh_gas(self) -> bool:
         """Refresh a missing daily reference into a committed, isolated snapshot at most daily."""
         from zoneinfo import ZoneInfo
 
         day = datetime.now(ZoneInfo(LOCAL_TIMEZONE)).date()
         if day == self._gas_day or time.monotonic() < self._gas_retry:
-            return
+            return day == self._gas_day
         self._gas_retry = time.monotonic() + 1800
         shared = self.paths.processed / "gas_price"
         if (
@@ -134,7 +135,7 @@ class LiveService:
         ):
             self._gas_day = day
             self._gas_retry = 0.0
-            return
+            return True
         reference = DataPaths(self.paths.stream_root / "reference")
         target = reference.root / "gas" / f"asof={day}"
         if not (target / "_SUCCESS").exists():
@@ -147,6 +148,35 @@ class LiveService:
             mibgas.read_gas_price(self.spark, csv.parent).write.mode("overwrite").parquet(str(target))
         self._gas_day = day
         self._gas_retry = 0.0
+        return True
+
+    def _acquire_lock(self) -> None:
+        """Hold an OS lock so another dashboard cannot write the same checkpoints."""
+        self.paths.stream_root.mkdir(parents=True, exist_ok=True)
+        handle = (self.paths.stream_root / ".controller.lock").open("a+b")
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                handle.seek(0)
+                if not handle.read(1):
+                    handle.write(b"0")
+                    handle.flush()
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as error:
+            handle.close()
+            raise RuntimeError("Another dashboard is already using the live checkpoints") from error
+        self._lock_file = handle
+
+    def _release_lock(self) -> None:
+        if self._lock_file is not None:
+            self._lock_file.close()
+            self._lock_file = None
 
     def _observe(self) -> None:
         for query in self._queries:
@@ -166,16 +196,7 @@ class LiveService:
             self._state = "running" if ready else "waiting"
 
     def _stop_queries(self) -> None:
-        owned = list(self._queries)
-        try:
-            owned.extend(
-                query
-                for query in self.spark.streams.active
-                if query.name and query.name.startswith(self.prefix)
-            )
-        except Exception:
-            logger.debug("Spark is already unavailable during live-service shutdown", exc_info=True)
-        for query in owned:
+        for query in self._queries:
             try:
                 if query.isActive:
                     query.stop()
@@ -195,6 +216,8 @@ class LiveService:
                         return
                     self._state = "starting"
                 try:
+                    self._acquire_lock()
+                    capture.catch_up(self.paths, datetime.now(UTC), session=session)
                     received = self._capture(session)
                     if not self._wanted():
                         continue
@@ -208,9 +231,9 @@ class LiveService:
                             received = self._capture(session)
                             next_capture = time.monotonic() + (self.capture_seconds if received else 30)
                         try:
-                            self._refresh_gas()
-                            with self._condition:
-                                self._reference_warning = None
+                            if self._refresh_gas():
+                                with self._condition:
+                                    self._reference_warning = None
                         except Exception as error:
                             logger.warning("Optional gas reference update failed: %s", error)
                             with self._condition:
@@ -224,6 +247,7 @@ class LiveService:
                         self._state = "error"
                 finally:
                     self._stop_queries()
+                    self._release_lock()
                     with self._condition:
                         if self._error is None:
                             self._state = "paused"

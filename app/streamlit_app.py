@@ -16,10 +16,6 @@ from spain_electricity.model_ui import render_models
 from spain_electricity.spark_session import get_spark
 
 NO_DATA = "No data yet: run scripts/download_history.py and scripts/ingest.py"
-NO_STREAM = (
-    "No streaming output yet: run scripts/run_stream.py together with "
-    "scripts/replay_history.py (replay) or scripts/capture_realtime.py (live)"
-)
 CORRELATION_COLUMNS = list(charts.VARIABLE_LABELS)
 TIME_FORMAT = "ddd DD MMM YYYY, HH:mm"
 EXPLAIN = "What these series are and where they come from"
@@ -293,6 +289,13 @@ def live_panel() -> None:
     """Keep the selected source alive and refresh its isolated dashboard every ten seconds."""
     connection = runtime_ui.connection_status(source_selection)
     if source_selection.real_time and not connection.ready:
+        return
+    if (
+        not source_selection.real_time
+        and source_selection.paths.stream_name is None
+        and source_selection.historical_day is None
+    ):
+        st.info(NO_DATA)
         return
     desk_ui.render_live(
         spark,

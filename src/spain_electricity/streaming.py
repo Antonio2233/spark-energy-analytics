@@ -13,8 +13,14 @@ from pyspark.sql import functions as F
 from pyspark.sql.streaming import StreamingQuery
 
 from spain_electricity.capture import REE_LANDING, WEATHER_LANDING
-from spain_electricity.config import CITIES, DataPaths
-from spain_electricity.features import WEATHER_COLUMNS, add_renewable_share, hourly_mean, national_weather
+from spain_electricity.config import DataPaths
+from spain_electricity.features import (
+    WEATHER_COLUMNS,
+    add_renewable_share,
+    complete_weather,
+    hourly_mean,
+    national_weather,
+)
 from spain_electricity.models import load_metadata, predict_hours
 from spain_electricity.sources.open_meteo import read_current
 from spain_electricity.sources.ree_generation import parse_payload, with_utc
@@ -85,14 +91,7 @@ def monitoring_weather(spark: SparkSession, paths: DataPaths) -> DataFrame | Non
             return None
         weather = spark.read.parquet(str(folder))
     # A national temperature needs all five cities at the same observation time.
-    complete = (
-        weather.where(F.col("temperature_c").isNotNull())
-        .groupBy("ts_utc")
-        .agg(F.countDistinct("city").alias("cities"))
-        .where(F.col("cities") == len(CITIES))
-        .select("ts_utc")
-    )
-    weather = weather.join(complete, "ts_utc", "inner")
+    weather = complete_weather(weather)
     return hourly_mean(national_weather(weather), "ts_utc", WEATHER_COLUMNS).select(
         "hour_utc", "temperature_c"
     )
@@ -126,42 +125,50 @@ def start_stream(
     """Start the ``readings`` and ``windows`` queries; each has its own checkpoint."""
     trigger = {"availableNow": True} if available_now else {"processingTime": f"{trigger_seconds} seconds"}
     readings = read_generation_stream(spark, paths.landing, max_files_per_trigger)
-    readings_query = (
-        readings.writeStream.queryName(f"{query_prefix}readings")
-        .format("parquet")
-        .option("path", str(paths.stream_output / "readings"))
-        .option("checkpointLocation", str(paths.checkpoints / "readings"))
-        .outputMode("append")
-        .trigger(**trigger)
-        .start()
-    )
-    windows_query = (
-        window_metrics(readings)
-        .writeStream.queryName(f"{query_prefix}windows")
-        .outputMode("update")
-        .foreachBatch(_windows_writer(str(paths.stream_output / "windows")))
-        .option("checkpointLocation", str(paths.checkpoints / "windows"))
-        .trigger(**trigger)
-        .start()
-    )
-    queries = [readings_query, windows_query]
-    metadata = load_metadata(paths)
-    if metadata is not None:
-        try:
-            model = PipelineModel.load(str(paths.models / "demand" / "pipeline"))
-        except Exception:
-            logger.exception("Demand model could not be loaded; continuing with readings and windows")
-            return queries
-        hourly_query = (
-            window_metrics(readings, "1 hour")
-            .writeStream.queryName(f"{query_prefix}hourly_demand")
-            .outputMode("update")
-            .foreachBatch(_prediction_writer(paths, model, metadata["alert_threshold_mw"]))
-            .option("checkpointLocation", str(paths.checkpoints / "hourly_demand"))
+    queries = []
+    try:
+        readings_query = (
+            readings.writeStream.queryName(f"{query_prefix}readings")
+            .format("parquet")
+            .option("path", str(paths.stream_output / "readings"))
+            .option("checkpointLocation", str(paths.checkpoints / "readings"))
+            .outputMode("append")
             .trigger(**trigger)
             .start()
         )
-        queries.append(hourly_query)
-    else:
-        logger.info("No demand model yet; run scripts/train_demand.py to enable hourly predictions")
-    return queries
+        queries.append(readings_query)
+        windows_query = (
+            window_metrics(readings)
+            .writeStream.queryName(f"{query_prefix}windows")
+            .outputMode("update")
+            .foreachBatch(_windows_writer(str(paths.stream_output / "windows")))
+            .option("checkpointLocation", str(paths.checkpoints / "windows"))
+            .trigger(**trigger)
+            .start()
+        )
+        queries.append(windows_query)
+        metadata = load_metadata(paths)
+        if metadata is not None:
+            try:
+                model = PipelineModel.load(str(paths.models / "demand" / "pipeline"))
+            except Exception:
+                logger.exception("Demand model could not be loaded; continuing with readings and windows")
+                return queries
+            hourly_query = (
+                window_metrics(readings, "1 hour")
+                .writeStream.queryName(f"{query_prefix}hourly_demand")
+                .outputMode("update")
+                .foreachBatch(_prediction_writer(paths, model, metadata["alert_threshold_mw"]))
+                .option("checkpointLocation", str(paths.checkpoints / "hourly_demand"))
+                .trigger(**trigger)
+                .start()
+            )
+            queries.append(hourly_query)
+        else:
+            logger.info("No demand model yet; run scripts/train_demand.py to enable hourly predictions")
+        return queries
+    except Exception:
+        for query in queries:
+            if query.isActive:
+                query.stop()
+        raise
