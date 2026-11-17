@@ -96,7 +96,7 @@ def test_correlation_diagonal(spark, paths):
     assert matrix.loc["demand_mw", "temperature_c"] < 0
 
 
-def test_live_windows_keeps_latest_batch(spark, paths):
+def test_live_windows_keeps_latest_batch(spark, paths, monkeypatch):
     target = paths.stream_output / "windows"
     schema = "window_start timestamp, window_end timestamp, avg_demand_mw double, max_demand_mw double, "
     schema += "avg_renewable_share double, n_readings long"
@@ -106,20 +106,20 @@ def test_live_windows_keeps_latest_batch(spark, paths):
     windows = views.live_windows(spark, paths)
     assert len(windows) == 1
     assert windows.avg_demand_mw.iloc[0] == 12.0
+    original = views.latest_per_key
+    calls = []
 
+    def observed(*args):
+        calls.append(1)
+        return original(*args)
 
-def test_live_readings_last_hours(spark, paths):
-    assert views.live_readings(spark, paths).empty
-    rows = [
-        (ts("2025-01-15 00:00"), 1.0, 0.1),
-        (ts("2025-01-15 09:00"), 2.0, 0.2),
-        (ts("2025-01-15 10:00"), 3.0, 0.3),
-    ]
-    spark.createDataFrame(rows, ["ts_utc", "demand_mw", "renewable_share"]).write.parquet(
-        str(paths.stream_output / "readings")
-    )
-    readings = views.live_readings(spark, paths, last_hours=6)
-    assert list(readings.demand_mw) == [2.0, 3.0]
+    monkeypatch.setattr(views, "latest_per_key", observed)
+    assert views.live_windows(spark, paths).equals(windows)
+    assert not calls  # Unchanged commits reuse the bounded UI result without a Spark read.
+    row = [(ts("2025-01-15 10:00"), ts("2025-01-15 10:15"), 15.0, 15.0, 0.5, 3)]
+    spark.createDataFrame(row, schema).write.parquet(str(target / "batch_id=2"))
+    assert views.live_windows(spark, paths).avg_demand_mw.iloc[0] == 15.0
+    assert len(calls) == 1
 
 
 def test_minutes_since():

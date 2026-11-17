@@ -1,5 +1,8 @@
-# Data, models and streaming state: never versioned (downloaded or generated)
-data/
+# Only trained models are shared; data and streaming state stay local.
+data/*
+!data/models/
+data/**/_temporary/
+data/**/*.part
 
 # Spark local artifacts
 spark-warehouse/

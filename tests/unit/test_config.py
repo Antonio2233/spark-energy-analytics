@@ -1,3 +1,5 @@
+import pytest
+
 from spain_electricity.config import CITIES, DataPaths
 
 
@@ -27,3 +29,14 @@ def test_cities_weights_positive():
     assert set(CITIES) == {"madrid", "barcelona", "valencia", "seville", "bilbao"}
     assert all(city.weight > 0 for city in CITIES.values())
     assert CITIES["madrid"].latitude == 40.4168
+
+
+def test_live_namespace_shares_reference_data_but_not_stream_state(tmp_path):
+    legacy = DataPaths(tmp_path)
+    live = legacy.with_stream("live")
+    assert live.raw == legacy.raw and live.processed == legacy.processed and live.models == legacy.models
+    assert live.landing == tmp_path / "stream_live" / "landing"
+    assert live.checkpoints != legacy.checkpoints and live.stream_output != legacy.stream_output
+    assert legacy.with_stream("replay").stream_output == legacy.stream_output
+    with pytest.raises(ValueError):
+        legacy.with_stream("../raw")

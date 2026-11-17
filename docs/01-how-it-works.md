@@ -125,7 +125,7 @@ The watermark has a side effect: once the stream has seen a reading, anything mo
 uv run streamlit run app/streamlit_app.py
 ```
 
-Opens at <http://localhost:8501>. The app only reads: it aggregates the Parquet datasets with Spark (`views.py`) and draws them with Altair (`charts.py`). What every series means, its unit and its source come from `catalog.py`, shown under each chart ("What these series are and where they come from") and in the About the data section of Data status. Times are UTC, and the charts follow Streamlit's light or dark theme.
+Opens at <http://localhost:8501>. The app starts live capture and streaming when Real time is selected. It aggregates Parquet datasets with Spark (`views.py`) and draws them with Altair (`charts.py`). What every series means, its unit and its source come from `catalog.py`, shown under each chart ("What these series are and where they come from") and in the About the data section of Data status. Times are UTC, and the charts follow Streamlit's light or dark theme.
 
 | Tab | What you see | Fed by |
 |---|---|---|
@@ -134,7 +134,7 @@ Opens at <http://localhost:8501>. The app only reads: it aggregates the Parquet 
 | Live | Latest reading, demand and renewable share; the last 6 hours of streamed 5-minute demand; the latest 15-minute windows. Refreshes every 30 seconds | `data/stream/output/` |
 | Analysis | Daily demand against national temperature, working days apart from weekends and holidays, with a quadratic trend; the correlation between hourly variables, one value per pair | `hourly_features` |
 
-In live mode the Live tab warns when the newest reading is more than 20 minutes old, and says which of three causes it is: the capture landed files the stream has not processed (start `run_stream.py`), nothing has been captured for 15 minutes (start `capture_realtime.py`), or both run and REE's feed is answering with old readings (nothing to restart). In replay mode it never warns, since replayed readings are old by design; instead, a notice says from which day the readings are and which scripts to run to follow today's data. The tab only shows today's data while `capture_realtime.py` and `run_stream.py` are running.
+In the sidebar, choose Historical to read a downloaded day, Replay to show `data/stream/output` from the CLI demonstration, or Real time to start the in-app capture and streaming controller. Live status and stale event times are shown in the dashboard. Live state is isolated in `data/stream_live`, and Replay state in `data/stream`. The controller catches up missed days on startup and pauses when no viewer requests live data.
 
 ## Demo in three terminals
 
@@ -145,7 +145,7 @@ uv run python scripts/run_stream.py
 uv run python scripts/replay_history.py --start 2025-01-04 --end 2025-01-10 --delay 30
 ```
 
-Open the Live tab: a past day lands every 30 seconds and the stream processes it in its next micro-batch, so Live advances one day at a time; the 7 days take about 3.5 minutes. Without the first line, after a live session every replayed day would be older than the watermark and nothing would appear.
+Select Replay in the sidebar and open the Live tab: a past day lands every 30 seconds and the stream processes it in its next micro-batch, so Live advances one day at a time; the 7 days take about 3.5 minutes. Without the first line, after a live session every replayed day would be older than the watermark and nothing would appear.
 
 ## Two definitions of demand
 

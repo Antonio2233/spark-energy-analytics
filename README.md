@@ -4,7 +4,10 @@ Final project for the Big Data course (UMA Master's). We combine Red Eléctrica'
 
 ## Documentation
 
+- [macOS setup and launch](README_MAC.md): native Mac installation, compact data/model preparation, one-click source selection and troubleshooting.
 - [How phase 1 works](docs/01-how-it-works.md): what every script does, the datasets it writes, the streaming job and the UI tabs.
+- [Demand model and hourly monitoring](docs/02-demand-model.md): bounded seasonal sample, fast training, measured results and streaming estimates.
+- [Energy Desk](docs/03-energy-desk.md): live-first market dashboard, source alignment, bounded market preparation and real-time/replay behavior.
 - [Project plan](docs/plan.md): questions, sources, models, streaming and schedule by iteration.
 - [Phase 1 implementation plan](docs/superpowers/plans/2026-11-10-phase-1-data.md): data ingestion, first stream and UI.
 - [Phase 2 implementation plan](docs/superpowers/plans/2026-11-12-phase-2-models.md): Spark ML models against REE's baselines, day types, expected demand in the stream and a Models tab.
@@ -30,17 +33,19 @@ There are two independent paths: the batch path processes the downloaded history
 - `capture_realtime.py` lands today's REE readings and the current weather every 5 minutes, and catches up missed days after an outage.
 - `replay_history.py` lands downloaded REE days one after another, as if they were arriving live.
 - `run_stream.py` is the Spark Structured Streaming job. It reads each landed file, removes duplicates, and writes the 5-minute readings and 15-minute windows.
-- `streamlit_app.py` only reads: it aggregates the Parquet output with Spark and draws it.
+- `streamlit_app.py` renders the desk and owns a background live-data controller when **Real time** is selected. The historical view reads the downloaded batch data directly.
 
 ### What must be running
 
-`download_history.py` and `ingest.py` run once and stop. `replay_history.py` stops once it has landed its days. `capture_realtime.py`, `run_stream.py` and the UI keep running, each in its own terminal, until Ctrl+C.
+For normal use, run **only the UI**. In the sidebar choose **Data source → Real time** to start capture and Structured Streaming automatically, or **Historical** to select a downloaded day. Select **Replay** to view the separate CLI replay stream. Startup and errors appear in the app; the replay demo requires the two scripts below. The UI live namespace is `data/stream_live`, so switching views preserves the legacy replay and all historical data.
 
 | To | Run | Notes |
 |---|---|---|
 | Browse the history | The UI | After downloading and ingesting once |
-| Follow today's data | `capture_realtime.py`, `run_stream.py` and the UI | Start from an empty `data/stream`. Live shows readings a few minutes old; without both scripts it shows the last processed readings, with a notice |
+| Follow today's data | The UI, then select **Real time** | Capture and streaming start automatically; the event timestamp and source age remain visible |
 | Demo with replayed history | `run_stream.py`, `replay_history.py` and the UI | Replay days later than the newest reading the stream has processed, or empty `data/stream` first |
+
+The standalone capture, replay and stream scripts below are advanced CLI tools; Replay requires the replay and stream scripts. The UI controller pauses when no viewer requests live data; closed browser sessions expire after 90 seconds. It stops only its own queries and keeps checkpoints for the next visit.
 
 ## Requirements
 
@@ -50,8 +55,28 @@ There are two independent paths: the batch path processes the downloaded history
 ## Getting started
 
 ```bash
-uv sync
+uv sync --locked
+uv run --locked streamlit run app/streamlit_app.py --server.port 8501
 ```
+
+The repository includes the trained model and its evaluation results, but not raw or processed data. Download and ingest the data before using History and the full desk; retraining is not required. Install Java and uv first; native Mac instructions are in [README_MAC.md](README_MAC.md). Local environments and live/replay checkpoints remain excluded from Git.
+
+The UI now opens on **Live**, an Energy Desk with demand, generation mix, electricity/gas references, weather, model estimates and alerts. Use **Data source → Historical / Replay / Real time** to choose downloaded history or start current capture automatically. Its mode badge and event timestamp distinguish the views.
+
+### Small demand-model demonstration
+
+Prepare the compact history and market references on a fresh checkout. The saved model is already included; training is optional.
+
+```bash
+uv run python scripts/prepare_demand.py
+uv run python scripts/prepare_desk_market.py --month 2026-10 --forecast-day 2026-10-12
+# Optional: uv run python scripts/train_demand.py
+uv run streamlit run app/streamlit_app.py
+```
+
+This downloads a bounded sample of 96 days (248 files, about 16 MB on the first run), builds hourly features and compares small linear and Random Forest pipelines. The first training/evaluation run took 43.1 seconds. **Models** shows actual coverage, candidate validation scores, paired REE metrics and the worst errors. Results cover sampled dates, not complete years. Price models and KMeans remain future work. Kafka is out of scope.
+
+After training, restart `run_stream.py` to enable a third query with hourly demand estimates and validation-calibrated alerts in **Live**. Live mode uses captured weather; replay uses historical weather. Missing weather and incomplete hours never trigger alerts. See the [demand extension](docs/02-demand-model.md) for the measured accuracy and limitations.
 
 ### 1. History: download and ingest with Spark
 
@@ -64,14 +89,14 @@ uv run python scripts/ingest.py
 
 Downloads are resumable: a rerun skips files whose period has settled and refreshes those fetched while their day or month was still open.
 
-The models use the full history, from 2021 to yesterday:
+To prepare the full history for final training:
 
 ```bash
 uv run python scripts/download_history.py --start 2021-01-01 --end 2026-11-09
 uv run python scripts/ingest.py
 ```
 
-On 2026-11-10 that was 2,642 files (about 490 MB): the download took 1 h 14 min with no failures, and the ingest 31 s.
+The default sources now also include the peninsular forecast, adding roughly 2,140 daily requests for 2021?2026. On 2026-11-10 the earlier source set was 2,642 files (about 490 MB): the download took 1 h 14 min with no failures, and the ingest 31 s.
 
 ### 2. Streaming
 
@@ -103,12 +128,13 @@ The stream keeps a 2-hour watermark. Once it has seen a reading, anything more t
 uv run streamlit run app/streamlit_app.py
 ```
 
-Opens at <http://localhost:8501>, with four tabs. All times are UTC. Under every chart, a folded section explains each series and links its source. Restart the UI after changing code in `src/`: Streamlit reruns the app file when it changes, but keeps the package modules it already loaded.
+Opens at <http://localhost:8501>, with five tabs. All times are UTC. Chart descriptions explain each series and its source. Restart the UI after changing code in `src/`: Streamlit reruns the app file when it changes, but keeps the package modules it already loaded.
 
 - **Data status:** rows and time range of every processed dataset, with its source; the attributes (columns) of each dataset; and what every variable and generation technology is, its unit, and where it comes from.
 - **History:** actual demand vs REE's forecast (both from REData, so they measure the same demand), the generation mix (one line per technology), and day-ahead price vs PVPC.
 - **Live:** the streamed 5-minute demand and the 15-minute windows. It shows today's data only while `capture_realtime.py` and `run_stream.py` are running; otherwise it shows the last replayed or captured readings, with a notice saying from which day and how to go live. Refreshes every 30 seconds, and warns in live mode when no new reading arrives for 20 minutes.
 - **Analysis:** daily demand against temperature (working days apart from weekends and holidays), and the correlation between hourly variables with its value on every cell.
+- **Models:** seasonal sample coverage, validation candidates, demand model vs peninsular REE forecast, held-out predictions and worst residuals. Live also shows hourly model estimates when the model-enabled stream is running.
 
 ### Demo in three terminals
 
@@ -137,4 +163,4 @@ uv run pytest -m integration         # end-to-end Spark, streaming and UI tests
 - `app/`: Streamlit UI.
 - `notebooks/`: thin analysis notebooks over the package.
 - `docs/`: plan and documentation.
-- `data/`: downloaded and generated data; not versioned.
+- `data/`: only trained models are shared; raw and processed data, local tools and streaming state are ignored.

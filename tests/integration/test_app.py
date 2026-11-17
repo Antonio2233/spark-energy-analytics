@@ -26,8 +26,8 @@ def test_app_runs_with_ingested_fixtures(spark, monkeypatch, paths, fixtures_dir
     app = AppTest.from_file(APP, default_timeout=180).run()
     assert not app.exception
     assert not any("No data yet" in info.value for info in app.info)
-    assert [tab.label for tab in app.tabs] == ["Data status", "History", "Live", "Analysis"]
-    guide = [expander.label for expander in app.tabs[0].expander]
+    assert [tab.label for tab in app.tabs] == ["Live", "History", "Analysis", "Models", "Data status"]
+    guide = [expander.label for expander in app.tabs[-1].expander]
     assert {"Variables", "Generation technologies", "Sources"} <= set(guide)
 
 

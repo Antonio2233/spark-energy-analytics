@@ -37,6 +37,13 @@ def add_renewable_share(df: DataFrame) -> DataFrame:
     return df.withColumn("renewable_share", F.try_divide(renewables, F.col("demand_mw")))
 
 
+def complete_weather(weather: DataFrame) -> DataFrame:
+    """Keep observations with a temperature for every configured city at the same instant."""
+    valid = weather.where(F.col("city").isin(list(CITIES)) & F.col("temperature_c").isNotNull())
+    complete = valid.groupBy("ts_utc").agg(F.countDistinct("city").alias("cities"))
+    return weather.join(complete.where(F.col("cities") == len(CITIES)).select("ts_utc"), "ts_utc")
+
+
 def national_weather(weather: DataFrame, cities: Mapping[str, City] = CITIES) -> DataFrame:
     """Return the weighted mean of every weather column per timestamp across cities."""
     weight = F.create_map(*[F.lit(item) for city in cities.values() for item in (city.name, city.weight)])[
@@ -85,6 +92,17 @@ def build_hourly_features(spark: SparkSession, paths: DataPaths) -> DataFrame:
     table = add_renewable_share(
         hourly_mean(spark.read.parquet(str(generation_path)), "ts_utc", GENERATION_COLUMNS)
     )
+    baseline = _read_optional(spark, paths.processed / "peninsular_forecast")
+    if baseline is None:
+        table = _with_nulls(table, ["peninsular_forecast_mw", "peninsular_scheduled_mw"])
+    else:
+        if "peninsular_scheduled_mw" not in baseline.columns:
+            baseline = _with_nulls(baseline, ["peninsular_scheduled_mw"])
+        table = table.join(
+            hourly_mean(baseline, "ts_utc", ["peninsular_forecast_mw", "peninsular_scheduled_mw"]),
+            "hour_utc",
+            "left",
+        )
 
     # REData's actual demand travels with its forecast: the forecast predicts that series, which
     # runs about 5% above the 5-minute feed's demand_mw (January 2025).

@@ -1,0 +1,4 @@
+# Preserve saved model bytes on every platform.
+data/models/** -text
+*.parquet binary
+*.xlsx binary

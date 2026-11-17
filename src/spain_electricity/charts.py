@@ -71,8 +71,9 @@ def theme_for(dark: bool) -> ChartTheme:
     return DARK if dark else LIGHT
 
 
-def _title(text: str, subtitle: str | None = None) -> alt.TitleParams:
-    return alt.TitleParams(text=text, subtitle=subtitle or "", anchor="start")
+def _title(text: str, subtitle: str | None = None, theme: ChartTheme | None = None) -> alt.TitleParams:
+    colors = {} if theme is None else {"color": theme.ink, "subtitleColor": theme.ink}
+    return alt.TitleParams(text=text, subtitle=subtitle or "", anchor="start", **colors)
 
 
 def _color(domain: list[str], theme: ChartTheme, title: str | None = None, columns: int = 0) -> alt.Color:
@@ -126,7 +127,7 @@ def line_chart(
         .add_params(hover)
     )
     rule = alt.Chart(data).mark_rule(strokeWidth=1, opacity=0.4).encode(x=f"{x}:T").transform_filter(hover)
-    return alt.layer(lines, points, rule, title=_title(title, subtitle)).properties(height=280)
+    return alt.layer(lines, points, rule, title=_title(title, subtitle, theme)).properties(height=280)
 
 
 def mix_chart(mix: pd.DataFrame, theme: ChartTheme) -> alt.LayerChart:
@@ -173,6 +174,7 @@ def mix_chart(mix: pd.DataFrame, theme: ChartTheme) -> alt.LayerChart:
     title = _title(
         "Generation mix",
         "Hourly mean MW of each technology. Click a name in the legend to highlight it",
+        theme,
     )
     return alt.layer(lines, rule, title=title).properties(height=340)
 
@@ -224,6 +226,7 @@ def demand_temperature_scatter(daily: pd.DataFrame, theme: ChartTheme) -> alt.La
         "Daily demand vs national temperature",
         "One dot per day; dashed lines are a quadratic trend, because over a year demand rises with both "
         "cold and heat",
+        theme,
     )
     return alt.layer(dots, trend, title=title).properties(height=340)
 
@@ -288,5 +291,180 @@ def correlation_heatmap(matrix: pd.DataFrame, theme: ChartTheme) -> alt.LayerCha
     title = _title(
         "Correlation between hourly variables (Pearson r)",
         "+1: they rise together · −1: one rises as the other falls · 0: no linear relation",
+        theme,
     )
     return alt.layer(rects, values, title=title).properties(height=380)
+
+
+DESK = ChartTheme(
+    slots=("#53b4ff", "#49dcb1", "#f6c76b", "#bd9bff", "#ff996b", "#61c5cf", "#ec86b8", "#a6b5ca"),
+    surface="#111e30",
+    ink="#dbe6f5",
+    strong_ink="#07111f",
+    strong_from=0.75,
+    diverging=("#ff996b", "#24344e", "#49dcb1"),
+)
+
+
+def desk_demand_chart(timeline: pd.DataFrame, theme: ChartTheme = DESK) -> alt.LayerChart:
+    """Compare 5-minute observations with hourly estimates on a common MW axis."""
+    names = {
+        "demand_mw": catalog.label("demand_mw"),
+        "expected_demand_mw": catalog.label("expected_demand_mw"),
+        "peninsular_forecast_mw": catalog.label("peninsular_forecast_mw"),
+    }
+    names = {key: value for key, value in names.items() if timeline[key].notna().any()}
+    long = (
+        timeline[["ts_utc", *names]]
+        .rename(columns=names)
+        .melt(id_vars="ts_utc", var_name="series", value_name="mw")
+        .dropna(subset=["mw"])
+    )
+    return line_chart(
+        long,
+        x="ts_utc",
+        y="mw",
+        title="Demand & expectations",
+        y_title="MW",
+        domain=list(names.values()),
+        theme=theme,
+        time_format=HOUR_FORMAT,
+        subtitle="Observed every 5 min · ML and REE are hourly estimates / forecasts",
+    )
+
+
+def desk_mix_area(timeline: pd.DataFrame, theme: ChartTheme = DESK) -> alt.Chart:
+    """Show the tracked generation stack; it is not forced to equal measured demand."""
+    columns = {f"{key}_mw": label for key, label in TECHNOLOGY_LABELS.items()}
+    data = timeline[["ts_utc", *columns]].rename(columns=columns)
+    return (
+        alt.Chart(data)
+        .transform_fold(list(columns.values()), as_=["series", "mw"])
+        .transform_filter("isValid(datum.mw) && datum.mw >= 0")
+        .transform_calculate(gw="datum.mw / 1000")
+        .mark_area(opacity=0.9)
+        .encode(
+            x=alt.X("ts_utc:T", axis=_time_axis(HOUR_FORMAT)),
+            y=alt.Y("gw:Q", stack="zero", title="GW · tracked generation"),
+            color=_color(list(columns.values()), theme, columns=4),
+            tooltip=[
+                alt.Tooltip("ts_utc:T", title="UTC", format=TOOLTIP_TIME_FORMAT),
+                alt.Tooltip("series:N", title="Technology"),
+                alt.Tooltip("gw:Q", title="GW", format=".2f"),
+            ],
+        )
+        .properties(
+            height=280,
+            title=_title("Generation stack", "Positive output of eight tracked technologies", theme),
+        )
+    )
+
+
+def desk_mix_ring(mix: pd.DataFrame, theme: ChartTheme = DESK) -> alt.LayerChart:
+    """Show current shares of tracked output, with demand-based renewables kept separate."""
+    data = mix.assign(series=mix.technology.map(TECHNOLOGY_LABELS))
+    arcs = (
+        alt.Chart(data)
+        .mark_arc(innerRadius=44, outerRadius=64, stroke=theme.surface, strokeWidth=2)
+        .encode(
+            theta=alt.Theta("mw:Q"),
+            color=alt.Color(
+                "series:N",
+                title=None,
+                scale=alt.Scale(domain=list(TECHNOLOGY_LABELS.values()), range=list(theme.slots)),
+                legend=alt.Legend(
+                    orient="right", labelLimit=135, labelFontSize=10, symbolSize=65, rowPadding=2
+                ),
+            ),
+            tooltip=[
+                alt.Tooltip("series:N", title="Technology"),
+                alt.Tooltip("mw:Q", title="MW", format=",.0f"),
+                alt.Tooltip("generation_fraction:Q", title="Tracked output share", format=".1%"),
+            ],
+        )
+    )
+    total = float(mix.mw.sum()) / 1000
+    center = (
+        alt.Chart(pd.DataFrame({"label": [f"{total:.1f} GW"]}))
+        .mark_text(fontSize=19, fontWeight=600, color=theme.ink)
+        .encode(text="label:N")
+    )
+    return alt.layer(arcs, center).properties(
+        height=280, title=_title("Supply mix", "Shares of tracked generation", theme)
+    )
+
+
+def desk_price_profile(
+    prices: pd.DataFrame, fuel_cost: float | None, theme: ChartTheme = DESK
+) -> alt.LayerChart:
+    """Display published day-ahead delivery prices, including negative prices and future delivery hours."""
+    bars = (
+        alt.Chart(prices)
+        .mark_bar(size=14, cornerRadiusTopLeft=3, cornerRadiusTopRight=3)
+        .encode(
+            x=alt.X("hour_utc:T", axis=_time_axis(HOUR_FORMAT), title="Delivery hour · UTC"),
+            y=alt.Y("spot_price_eur_mwh:Q", title="€/MWh"),
+            color=alt.condition(
+                "datum.spot_price_eur_mwh < 0", alt.value(theme.slots[1]), alt.value(theme.slots[0])
+            ),
+            tooltip=[
+                alt.Tooltip("hour_utc:T", title="Delivery UTC", format=TOOLTIP_TIME_FORMAT),
+                alt.Tooltip("spot_price_eur_mwh:Q", title="Day-ahead spot €/MWh", format=".2f"),
+                alt.Tooltip("pvpc_eur_mwh:Q", title="PVPC €/MWh", format=".2f"),
+            ],
+        )
+    )
+    # A visible key keeps the price bar and scenario line interpretable without relying on color alone.
+    key = ["Day-ahead spot"] + (["Fuel-only cost scenario"] if fuel_cost is not None else [])
+    legend = (
+        alt.Chart(pd.DataFrame({"series": key, "dummy": [0] * len(key)}))
+        .mark_point(opacity=0)
+        .encode(color=_color(key, theme))
+    )
+    layers = [bars, legend]
+    if fuel_cost is not None:
+        layers.append(
+            alt.Chart(pd.DataFrame({"value": [fuel_cost]}))
+            .mark_rule(strokeDash=[6, 4], color=theme.slots[1])
+            .encode(y="value:Q")
+        )
+    return alt.layer(*layers).properties(
+        height=260,
+        title=_title(
+            "Day-ahead delivery curve",
+            "Published hourly means · includes remaining delivery hours, not future trades",
+            theme,
+        ),
+    )
+
+
+def desk_price_scatter(hourly: pd.DataFrame, theme: ChartTheme = DESK) -> alt.Chart:
+    """Explore co-movement, without claiming causation or predicting a trading return."""
+    data = hourly.dropna(subset=["residual_demand_mw", "spot_price_eur_mwh", "renewable_share"])
+    return (
+        alt.Chart(data)
+        .transform_calculate(residual_gw="datum.residual_demand_mw / 1000")
+        .mark_circle(size=95, opacity=0.85)
+        .encode(
+            x=alt.X("residual_gw:Q", title="Residual demand · GW", scale=alt.Scale(zero=False)),
+            y=alt.Y("spot_price_eur_mwh:Q", title="Spot · €/MWh", scale=alt.Scale(zero=False)),
+            color=alt.Color(
+                "renewable_share:Q",
+                title="Renewables / demand",
+                scale=alt.Scale(range=[theme.slots[0], theme.slots[1]]),
+                legend=alt.Legend(format=".0%"),
+            ),
+            tooltip=[
+                alt.Tooltip("hour_utc:T", title="UTC", format=TOOLTIP_TIME_FORMAT),
+                alt.Tooltip("residual_gw:Q", title="Residual GW", format=".2f"),
+                alt.Tooltip("spot_price_eur_mwh:Q", title="Spot €/MWh", format=".2f"),
+                alt.Tooltip("renewable_share:Q", title="Renewables / demand", format=".1%"),
+            ],
+        )
+        .properties(
+            height=260,
+            title=_title(
+                "Power-price drivers", "One point per observed hour · co-movement, not causation", theme
+            ),
+        )
+    )

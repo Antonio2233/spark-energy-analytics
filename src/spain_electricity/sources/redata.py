@@ -80,6 +80,14 @@ def build_price_url(month: date) -> str:
     return _month_url(PRICE_WIDGET, month)
 
 
+def build_price_day_url(day: date) -> str:
+    """Return published spot/PVPC delivery prices for one local day."""
+    return (
+        f"{BASE_URL}/{PRICE_WIDGET}?start_date={day.isoformat()}T00:00"
+        f"&end_date={day.isoformat()}T23:59&time_trunc=hour"
+    )
+
+
 def is_valid_payload(content: bytes) -> bool:
     """Return True for a data response, False for an ``errors`` body."""
     return b'"errors"' not in content and b'"included"' in content

@@ -118,3 +118,20 @@ def test_scatter_groups_holidays_with_weekends():
 def test_themes_use_their_own_slots():
     assert charts.theme_for(dark=False) is charts.LIGHT
     assert charts.theme_for(dark=True).slots[0] == "#3987e5"
+
+
+def test_desk_market_charts_validate_and_preserve_negative_prices():
+    mix = pd.DataFrame(
+        {"technology": ["wind", "nuclear"], "mw": [1000.0, 2000.0], "generation_fraction": [1 / 3, 2 / 3]}
+    )
+    assert charts.desk_mix_ring(mix).to_dict()["layer"][0]["mark"]["type"] == "arc"
+    prices = pd.DataFrame(
+        {
+            "hour_utc": pd.to_datetime(["2026-10-11 01:00", "2026-10-11 02:00"]),
+            "spot_price_eur_mwh": [-5.0, 80.0],
+            "pvpc_eur_mwh": [10.0, 100.0],
+        }
+    )
+    spec = charts.desk_price_profile(prices, 60.0).to_dict()
+    assert any(row.get("spot_price_eur_mwh") == -5 for rows in spec["datasets"].values() for row in rows)
+    assert any(layer["mark"]["type"] == "rule" for layer in spec["layer"])
