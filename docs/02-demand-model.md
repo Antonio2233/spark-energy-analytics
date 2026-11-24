@@ -22,7 +22,7 @@ For a quick demonstration without the full download, use the seasonal sample ins
 
 Its results describe the sampled dates only.
 
-Open **Models** to see the selection, metrics, coverage, predictions and largest errors. Restart a running UI after changing package code. The trained model is shared in Git; raw and processed data must be downloaded and ingested locally.
+Open **Models** to see the selection, metrics, coverage, predictions and largest errors. Its **Model version** selector switches between the model refit on 2021–2025 and the update refit through October 2026. Restart a running UI after changing package code. The trained model is shared in Git; raw and processed data must be downloaded and ingested locally.
 
 ## Model selection without temporal leakage
 
@@ -47,8 +47,9 @@ The procedure, in order:
 3. Take the alert threshold from that fit's 2025 residuals.
 4. Refit the winner on every valid 2021–2025 hour.
 5. Evaluate it once on 2026.
+6. Refit the same configuration on every valid hour through 31 October 2026 (the update, `models.UPDATE_CUTOFF`) and score it on November 2026, beside the model of step 4 on the same hours.
 
-There is no random split and no selection on test data. Training excludes nonpositive demand, missing or non-finite temperatures, and the 28 April 2025 blackout.
+There is no random split and no selection on test data: step 6 reuses the configuration chosen in step 2. Training excludes nonpositive demand, missing or non-finite temperatures, and the 28 April 2025 blackout.
 
 The model is scored against two baselines on identical hours. An hour missing either baseline is removed from all three scores.
 
@@ -59,7 +60,8 @@ The model is scored against two baselines on identical hours. An hour missing ei
 
 The saved report gives MAE, RMSE, R² and the bias (actual minus estimate). `data/models/demand/` holds:
 
-- the refit `PipelineModel`;
+- the refit `PipelineModel`, the one the streaming job applies;
+- in `update/`, the update's `PipelineModel` and its November predictions, which also hold the 2021–2025 model's estimates for the same hours;
 - candidate scores, paired metrics, feature weights and the audit;
 - evaluation predictions. Only the test ones come from the saved model; the validation ones come from the 2021–2024 fit.
 
@@ -76,36 +78,53 @@ Full history:
 | Test (paired) | 7,848 |
 | Refit | 43,799 |
 
-Training, evaluation and saving took 225 s on 12 cores with a 6 GB driver.
+Training, evaluation, the update and saving took 160 s on 12 cores with a 6 GB driver. A second run on the same data reproduced every score exactly. An earlier run that day, before the hourly table was rebuilt, gave slightly different values (2025 MAE 1,084 and 2026 MAE 2,473 MW).
 
 Validation MAE of the candidates (2025, MW):
 
 | Family | Candidates | Best MAE | Best R² |
 |---|---:|---:|---:|
 | Linear regression | 6 | 1,475 | 0.816 |
-| Random Forest | 2 | 1,131 (depth 12) | 0.883 |
-| GBT | 4 | **1,084** (120 iterations, depth 6) | 0.886 |
+| Random Forest | 2 | 1,129 (depth 12) | 0.884 |
+| GBT | 4 | **1,099** (120 iterations, depth 6) | 0.882 |
 
 The selected GBT, against both baselines:
 
 | Split | Hours | Source | MAE (MW) | RMSE (MW) | R² | Bias (MW) |
 |---|---:|---|---:|---:|---:|---:|
-| Validation 2025 | 8,712 | Model | 1,084 | 1,486 | 0.886 | +164 |
+| Validation 2025 | 8,712 | Model | 1,099 | 1,510 | 0.882 | +172 |
 | | | REE forecast | 256 | 360 | 0.993 | −1 |
 | | | Same hour yesterday | 1,803 | 2,687 | 0.627 | +2 |
-| Test 2026 | 7,848 | Model (refit 2021–2025) | 2,473 | 3,091 | 0.664 | **+2,365** |
+| Test 2026 | 7,848 | Model (refit 2021–2025) | 2,482 | 3,107 | 0.661 | **+2,370** |
 | | | REE forecast | 262 | 360 | 0.995 | −9 |
 | | | Same hour yesterday | 1,862 | 2,786 | 0.727 | +8 |
 
-In 2025 the model clearly beats the naive forecast. In 2026 it does not, and almost all of its error is bias: it underestimates demand by 2,365 MW on average.
+In 2025 the model clearly beats the naive forecast. In 2026 it does not, and almost all of its error is bias: it underestimates demand by 2,370 MW on average.
 
 Demand in 2026 is higher than in any training year at similar temperatures. July 2026 averages 33,651 MW, against 28,553–29,628 MW in July 2021–2025 (744 hours each), and REData's national series rises the same way.
 
-The model learned the shape that temperature and calendar explain, but not the new level. The next step is to give it the recent level, for example the mean demand of the previous days, which is also available in real time. No parameters were changed after seeing these test results.
+The model learned the shape that temperature and calendar explain, but not the new level. No parameters were changed after seeing these test results.
 
-The alert threshold is 4,549 MW. It flags 1.0% of the 2025 hours and 15.3% of the 2026 hours. Most 2026 alerts reflect that bias, not incidents.
+The alert threshold is 4,664 MW. It flags 1.0% of the 2025 hours and 15.0% of the 2026 hours. Most 2026 alerts reflect that bias, not incidents.
 
 An earlier run on the seasonal sample (1,536 training hours, four 24-tree candidates) selected a Random Forest with a 2026 MAE of 2,673 MW. It also lost to the naive forecast, which is why we moved to the full history, GBT and the refit.
+
+### Does training on 2026 help?
+
+The update refits the selected GBT on 51,095 valid hours through 31 October 2026, of which 7,296 are from 2026. It is scored on the 552 paired hours of 1–23 November 2026, beside the 2021–2025 model on the same hours:
+
+| Source | MAE (MW) | RMSE (MW) | R² | Bias (MW) |
+|---|---:|---:|---:|---:|
+| Update, trained through October 2026 | 2,032 | 2,402 | 0.723 | +1,869 |
+| Model trained on 2021–2025 | 2,099 | 2,491 | 0.702 | +1,932 |
+| REE forecast | 301 | 441 | 0.991 | −41 |
+| Same hour yesterday | 1,994 | 2,782 | 0.628 | +199 |
+
+Ten months of 2026 lower the MAE by 3% and the bias by only 63 MW. The update still underestimates November by 1.9 GW and does not beat the naive forecast. With the 2025 threshold, 1.8% of November hours alert with the update and 2.0% with the 2021–2025 model.
+
+The likely reason is an inference: temperature and calendar carry no year or level. For the same weather and day, the trees average the 2026 hours with five earlier years that outnumber them about six to one. More recent data alone does not move the level. The next step is to give the model the recent level, for example the mean demand of the previous days, which is also available in real time.
+
+These are 552 hours of a single month, so they show the direction of the effect, not its size over a year.
 
 ## Streaming estimates and alerts
 
@@ -146,7 +165,8 @@ The tests use local data and no network. They cover:
 - bounded sampling, date filtering and DST parsing;
 - chronological splits and the handling of the blackout and missing data;
 - matched rows for the model and both baselines;
-- the hand-looped grid, the refit and the persisted results;
+- the hand-looped grid, the refit, the update and the persisted results;
+- that a sample manifest left behind does not label a full-history model as a sample;
 - full streaming prediction, and alert behavior for missing, provisional and complete hours;
 - live-weather deduplication and source isolation;
 - rendering the Models and monitoring panels.

@@ -49,6 +49,7 @@ Do not reopen them unless the team asks.
 | Gas | The daily price is repeated across the 24 hours of the day | MIBGAS publishes daily prices |
 | Use of the day | Correlation and visualization (demand against temperature on the coldest and hottest days), and KMeans on each day's 24-hour curve | Extreme days are read at daily scale |
 | Temporal split | Train 2021–2024, validate 2025, test 2026 | It is a time series: never `randomSplit` |
+| Update with 2026 data | Each regression's configuration selected on 2025 is also refit on every valid hour before `models.UPDATE_CUTOFF` (2026-11-01) and scored on the hours from it, beside the model refit on 2021–2025. Streaming keeps the 2021–2025 demand model | 2026 demand runs above every training year (July: 33,651 MW against 28,553–29,628 MW in 2021–2025). The comparison is required in the final report (`docs/plan.md`) |
 | Demand target | `demand_mw`, the peninsular demand of the 5-minute feed | It is the demand the streaming job sees, so the model trained on the history is the one applied live |
 | Baseline | REE's peninsular demand forecast (field `pre` of `prevProgPeninsula`, see the data sources) | It forecasts the same system as `demand_mw`: on 2025-01-15 (n = 288 five-minute instants) it averages 33 MW below it, with a mean absolute error of 255 MW (0.8%). REData's `Prevista` is national, about 5% above, and only fits `actual_demand_mw` |
 | Anomalies | 2025-04-28, the Iberian blackout, is excluded from training and validation and flagged as an anomaly; it stays in the data and in the UI | Its mean demand was 15,512 MW, the lowest working day of 2021–2026 by far; a model fitted on it would learn a grid failure, not weather or calendar |
@@ -165,10 +166,10 @@ final_project/
 │   ├── pipeline.py           what the CLIs download and ingest
 │   ├── storage.py            what counts as data present in a folder
 │   ├── sampling.py           the seasonal sample of days
-│   ├── models.py             demand pipelines, temporal evaluation, refit and streaming estimates
+│   ├── models.py             demand pipelines, temporal evaluation, refit, update and streaming estimates
 │   ├── regression_models.py  price and renewable-share pipelines
-│   ├── day_types.py          KMeans on daily demand profiles
-│   ├── model_results.py      saved model reports for the UI and notebook
+│   ├── day_types.py          KMeans pipeline on daily demand profiles, with inferred group names
+│   ├── model_results.py      saved model reports and comparison tables for the UI and notebook
 │   ├── capture.py            live capture, catch-up after an outage, replay
 │   ├── streaming.py          Structured Streaming queries
 │   ├── views.py              Spark aggregations for the UI and notebooks
@@ -194,7 +195,7 @@ final_project/
     ├── stream/checkpoints/   one folder per streaming query
     ├── stream/output/        readings/, windows/batch_id=N/, hourly/ (replay and CLI stream)
     ├── stream_live/          the same for the in-app live controller
-    └── models/               demand, price, renewable_share, day_types: versioned in git
+    └── models/               demand, price, renewable_share (each with update/), day_types: versioned in git
 ```
 
 The demand extension adds `models.py` (small Spark ML pipelines), `sampling.py`, `model_ui.py`, `sources/ree_forecast.py`, and `scripts/prepare_demand.py` / `train_demand.py`. See `docs/02-demand-model.md`; price models and KMeans are implemented in `regression_models.py` and `day_types.py`; see `docs/04-phase-2-models.md`.
@@ -203,14 +204,16 @@ The Energy Desk adds `desk.py`, `desk_ui.py`, `runtime_ui.py` and `live_runtime.
 
 ### Models (phase 2)
 
-- `regression_models.py`: price/renewable specs, training-only pipelines, small ParamGridBuilder searches, paired t-24h evaluation and named feature weights. `models.py` keeps the demand pipeline and streaming contract.
-- `day_types.py`: complete local-day profiles, DST handling, training-only KMeans selection and saved descriptors. Cluster IDs have no automatic weather names.
+- `regression_models.py`: price/renewable specs, training-only pipelines and paired t-24h evaluation. `models.py` keeps the demand pipeline, the streaming contract and what the three regressions share: the grids, the splits, the update and named feature weights.
+- `day_types.py`: complete local-day profiles, DST handling, training-only KMeans selection (a one-stage `Pipeline`) and saved descriptors. KMeans numbers the groups arbitrarily; `name_day_types` names each one from its share of weekends or holidays and its mean temperature. The names are an inference, and the UI says so.
 - `scripts/prepare_phase2.py`: at most 24 monthly price requests and six annual gas references, reusing the seasonal demand/weather sample. `scripts/train_models.py` trains all four models by default (`--models` selects some); each run writes only the folders of the models it trains.
 - `notebooks/02_models.ipynb` reads saved reports through `model_results.py`. See [Phase 2 documentation](docs/04-phase-2-models.md).
-- New regressions use t-24h persistence baselines and include valid negative prices and renewable shares above one. Candidate selection uses 2025 only. The final selected configuration refits on train plus paired validation rows; 2026 is evaluated afterwards.
+- Price and renewable share use t-24h persistence baselines and include valid negative prices and renewable shares above one. Candidate selection uses 2025 only.
+- Every regression report has the same shape: `label`, `unit`, `baselines`, `evaluation` (validation and test, model and baselines on the same hours), `split_hours`, `refit`, `update`, `features` and `weight_kind`. `model_results.py` and the Models tab read the three the same way.
 - The demand model retains the 18/22 C degree-hour bases used by its saved pipeline. Do not change serving features without refitting the model.
 - Phase 3 requires the user's explicit instruction and is not started by completing these tasks.
-- Searches: demand loops `ParamGridBuilder` grids for linear regression (6 maps), Random Forest (2) and GBT (4), refits the winner on every valid 2021–2025 hour and is scored against two baselines (REE's peninsular forecast and the same hour 24 h earlier). Price and renewable share still use the compact search (two maps per family, no GBT) and refit on paired 2025 rows; aligning them with the demand procedure is pending.
+- Searches: the three regressions loop the same `ParamGridBuilder` grids (`models.GRIDS`): linear regression (6 maps), Random Forest (2) and GBT (4). Each refits its winner on every valid 2021–2025 hour and is tested once on 2026. Demand is scored against REE's peninsular forecast and the same hour 24 h earlier; price and renewable share against the same hour 24 h earlier. Price adds a gas × Iberian-exception interaction, and renewable share uses demand, its denominator, as an input.
+- Update: each regression also refits its winner on every valid hour before `models.UPDATE_CUTOFF` and saves it in `data/models/<name>/update/` (pipeline and predictions), with the report key `update`. It is scored beside the 2021–2025 model on the same paired hours. Without at least 24 such hours, the update is skipped and its folder removed. The Models tab switches between both versions.
 
 ## Using Spark
 

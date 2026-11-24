@@ -136,7 +136,7 @@ Opens at <http://localhost:8501>, with five tabs. All times are UTC. Chart descr
 - **History:** actual demand vs REE's forecast (both from REData, so they measure the same demand), the generation mix (one line per technology), and day-ahead price vs PVPC.
 - **Live:** the streamed 5-minute demand and the 15-minute windows. It shows today's data only while `capture_realtime.py` and `run_stream.py` are running; otherwise it shows the last replayed or captured readings, with a notice saying from which day and how to go live. Refreshes every 30 seconds, and warns in live mode when no new reading arrives for 20 minutes.
 - **Analysis:** daily demand against temperature (working days apart from weekends and holidays), and the correlation between hourly variables with its value on every cell.
-- **Models:** validation candidates, each model against its baselines (REE's peninsular forecast and the same hour the day before), held-out predictions, worst residuals, feature weights and KMeans day types. Live also shows hourly model estimates when the model-enabled stream is running.
+- **Models:** demand, price and renewable share, each with its validation candidates, its scores against its baselines (REE's peninsular forecast and the same hour the day before), one month of held-out predictions, the largest errors and the feature weights; then the KMeans day types, named by inference. A **Model version** selector switches between the model refit on 2021–2025 (tested on 2026) and the update refit through October 2026 (tested on November 2026). Live also shows hourly model estimates when the model-enabled stream is running.
 
 ### Demo in three terminals
 
@@ -170,10 +170,10 @@ uv run pytest -m integration         # end-to-end Spark, streaming and UI tests
 
 ## Phase 2 models
 
-The Models tab includes the demand, price and renewable-share regressions, feature weights and KMeans day types, all trained on the full 2021–2026 history and saved in Git. To retrain them after downloading and ingesting the full history:
+The Models tab includes the demand, price and renewable-share regressions, feature weights and KMeans day types, all trained on the full 2021–2026 history and saved in Git. Each regression also has an update, refit through October 2026 and tested on November 2026; the tab's **Model version** selector switches between both. To retrain them after downloading and ingesting the full history:
 
 ```bash
 uv run python scripts/train_models.py            # all four models; --models selects some
 ```
 
-On 2026-11-24 demand took 225 s and the other three about 11 s each, on 12 cores. For a quick experiment on the seasonal sample instead, run `scripts/prepare_phase2.py` after `prepare_demand.py`; it requests only the 24 price months and six annual gas references the sample needs. See [demand model](docs/02-demand-model.md) and [Phase 2 models](docs/04-phase-2-models.md) for features, temporal evaluation, measured results, units, DST handling, limitations and `notebooks/02_models.ipynb`.
+On 2026-11-24 the four models took about 7 minutes on 12 cores: demand 160 s, price 154 s and renewable share 99 s, each including its update through October 2026. For a quick experiment on the seasonal sample instead, run `scripts/prepare_phase2.py` after `prepare_demand.py`; it requests only the 24 price months and six annual gas references the sample needs. See [demand model](docs/02-demand-model.md) and [Phase 2 models](docs/04-phase-2-models.md) for features, temporal evaluation, measured results, units, DST handling, limitations and `notebooks/02_models.ipynb`.

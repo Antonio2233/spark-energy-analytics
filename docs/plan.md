@@ -87,6 +87,17 @@ flowchart LR
 | 3 | 17–24 Nov | Validation and test on 2026; interpretation of results | Alerts and replay mode; tests and continuous integration |
 | Final | 24 Nov–1 Dec | Integration, demo and presentation | Integration, demo and presentation |
 
+## Final report: required content
+
+The final report must include this comparison; the team decided it on 24 November 2026.
+
+- **Does training on 2026 help?** Each regression (demand, price and renewable share) keeps the configuration selected on 2025 in two versions:
+  - refit on 2021–2025 and evaluated once on all of 2026;
+  - refit on every valid hour through 31 October 2026 and evaluated on November 2026.
+- Both versions are scored on the same November hours, together with their baselines.
+- Why it matters: 2026 demand runs above every training year. July 2026 averages 33,651 MW, against 28,553–29,628 MW in July 2021–2025. The comparison shows how much of the 2026 error is a level the 2021–2025 model never saw.
+- The measured results are in `docs/02-demand-model.md` and `docs/04-phase-2-models.md`. The Models tab shows either version with its **Model version** selector.
+
 ## Risks
 
 - REE's real time can stall: on 3 November actual demand stopped updating mid-morning. That is why replay mode is included.
