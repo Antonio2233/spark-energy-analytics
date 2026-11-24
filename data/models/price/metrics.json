@@ -1,0 +1,194 @@
+{
+  "label": "spot_price_eur_mwh",
+  "baseline": "spot_price_eur_mwh_24h_ago",
+  "unit": "EUR/MWh",
+  "selected": {
+    "model": "linear",
+    "parameters": {
+      "regParam": 0.1
+    }
+  },
+  "candidates": [
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 0.1
+      },
+      "mae": 21.47870814087888,
+      "rmse": 27.839992202016724,
+      "r2": 0.7192540873865538
+    },
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 10.0
+      },
+      "mae": 22.147297284346465,
+      "rmse": 28.240664303751718,
+      "r2": 0.7111149680411645
+    },
+    {
+      "model": "random_forest",
+      "parameters": {
+        "maxDepth": 4
+      },
+      "mae": 33.98318749597994,
+      "rmse": 40.124129163402614,
+      "r2": 0.41684169759085254
+    },
+    {
+      "model": "random_forest",
+      "parameters": {
+        "maxDepth": 7
+      },
+      "mae": 32.327660702876884,
+      "rmse": 38.07295033465627,
+      "r2": 0.47494078116840066
+    }
+  ],
+  "validation_baseline": {
+    "mae": 13.383532986111113,
+    "rmse": 21.376892844329635,
+    "r2": 0.8344746998693682
+  },
+  "test": {
+    "model": {
+      "mae": 28.75633297265821,
+      "rmse": 34.31378804135176,
+      "r2": 0.7303806495385801
+    },
+    "baseline": {
+      "mae": 15.492847222222224,
+      "rmse": 21.382788444603445,
+      "r2": 0.8953010303121941
+    },
+    "hours": 288
+  },
+  "features": [
+    {
+      "feature": "gas_price_eur_mwh",
+      "weight": 31.79134377751913
+    },
+    {
+      "feature": "renewable_share",
+      "weight": -43.45125786383494
+    },
+    {
+      "feature": "demand_mw",
+      "weight": 7.4958029432584015
+    },
+    {
+      "feature": "iberian_exception_number",
+      "weight": -14.722721105129539
+    },
+    {
+      "feature": "local_hour_encoded_0",
+      "weight": -1.0839525933350591
+    },
+    {
+      "feature": "local_hour_encoded_1",
+      "weight": -3.102100865039171
+    },
+    {
+      "feature": "local_hour_encoded_10",
+      "weight": 2.6768627689566196
+    },
+    {
+      "feature": "local_hour_encoded_11",
+      "weight": 2.7298791229409103
+    },
+    {
+      "feature": "local_hour_encoded_12",
+      "weight": 2.7905739033183288
+    },
+    {
+      "feature": "local_hour_encoded_13",
+      "weight": 2.333912837411917
+    },
+    {
+      "feature": "local_hour_encoded_14",
+      "weight": 1.8524168502162917
+    },
+    {
+      "feature": "local_hour_encoded_15",
+      "weight": 1.6894125305932786
+    },
+    {
+      "feature": "local_hour_encoded_16",
+      "weight": 1.6067977793779975
+    },
+    {
+      "feature": "local_hour_encoded_17",
+      "weight": 2.606115316003079
+    },
+    {
+      "feature": "local_hour_encoded_18",
+      "weight": 3.336647841633058
+    },
+    {
+      "feature": "local_hour_encoded_19",
+      "weight": 4.108511439773004
+    },
+    {
+      "feature": "local_hour_encoded_2",
+      "weight": -4.726694283158448
+    },
+    {
+      "feature": "local_hour_encoded_20",
+      "weight": 3.7215423738924374
+    },
+    {
+      "feature": "local_hour_encoded_21",
+      "weight": 2.351808229896426
+    },
+    {
+      "feature": "local_hour_encoded_22",
+      "weight": 1.2032507435809963
+    },
+    {
+      "feature": "local_hour_encoded_23",
+      "weight": -0.6095720312178414
+    },
+    {
+      "feature": "local_hour_encoded_3",
+      "weight": -5.865702410132851
+    },
+    {
+      "feature": "local_hour_encoded_4",
+      "weight": -6.486842676050727
+    },
+    {
+      "feature": "local_hour_encoded_5",
+      "weight": -6.089755100546177
+    },
+    {
+      "feature": "local_hour_encoded_6",
+      "weight": -4.765745278824307
+    },
+    {
+      "feature": "local_hour_encoded_7",
+      "weight": -2.4880348119745053
+    },
+    {
+      "feature": "local_hour_encoded_8",
+      "weight": 0.4181979850085313
+    },
+    {
+      "feature": "local_hour_encoded_9",
+      "weight": 1.7924703273504308
+    },
+    {
+      "feature": "local_hour_encoded___unknown",
+      "weight": 0.0
+    }
+  ],
+  "rows": {
+    "train": 1536,
+    "validation": 288,
+    "test": 288
+  },
+  "weight_kind": "standardized coefficient",
+  "trained_at": "2026-11-24T16:28:05.509284+00:00",
+  "training_seconds": 49.42,
+  "interpretation": "Contemporaneous explanatory estimate, not a day-ahead forecast. Baseline is exact UTC t-24h persistence. Results cover available complete hours."
+}

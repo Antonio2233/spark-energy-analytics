@@ -1,7 +1,7 @@
 """Transformations shared by batch and streaming, and the hourly feature table.
 
-Every function except ``build_hourly_features`` and ``write_hourly_features`` is a pure
-DataFrame transformation with no actions, so it works the same on streaming DataFrames.
+Transformations perform no actions except the table readers/writers. Calendar, flags and
+renewable calculations are shared with streams. Exact 24-hour lag self-joins are batch-only.
 """
 
 from collections.abc import Mapping, Sequence
@@ -10,7 +10,7 @@ from pathlib import Path
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
-from spain_electricity.config import CITIES, LOCAL_TIMEZONE, City, DataPaths
+from spain_electricity.config import ANOMALY_DATES, CITIES, IBERIAN_EXCEPTION, LOCAL_TIMEZONE, City, DataPaths
 from spain_electricity.national_holidays import holidays_frame
 from spain_electricity.sources.ree_generation import RAW_TO_COLUMN
 from spain_electricity.storage import has_parquet
@@ -22,6 +22,30 @@ WEATHER_COLUMNS = ("temperature_c", "shortwave_radiation_wm2", "wind_speed_100m_
 FORECAST_COLUMNS = ("actual_demand_mw", "forecast_demand_mw")
 PRICE_COLUMNS = {"spot": "spot_price_eur_mwh", "pvpc": "pvpc_eur_mwh"}
 HOLIDAY_YEARS = range(2012, 2036)
+
+
+def add_flags(df: DataFrame) -> DataFrame:
+    """Flag the blackout and the legal Iberian-exception period using local delivery dates."""
+    return df.withColumn(
+        "is_anomaly", F.col("local_date").cast("string").isin(list(ANOMALY_DATES))
+    ).withColumn("iberian_exception", F.col("local_date").between(*IBERIAN_EXCEPTION))
+
+
+def add_lag_24h(df: DataFrame, column: str) -> DataFrame:
+    """Join the exact UTC hour 24 hours earlier; gaps remain null rather than shifting rows."""
+    previous = df.select(
+        (F.col("hour_utc") + F.expr("INTERVAL 24 HOURS")).alias("hour_utc"),
+        F.col(column).alias(f"{column}_24h_ago"),
+    )
+    return df.join(previous, "hour_utc", "left")
+
+
+def add_phase2_features(df: DataFrame) -> DataFrame:
+    """Add flags and exact elapsed-time persistence baselines to a batch hourly table."""
+    result = add_flags(df).drop("spot_price_eur_mwh_24h_ago", "renewable_share_24h_ago")
+    for column in ("spot_price_eur_mwh", "renewable_share"):
+        result = add_lag_24h(result, column)
+    return result
 
 
 def hourly_mean(df: DataFrame, ts_col: str, value_cols: Sequence[str]) -> DataFrame:
@@ -139,7 +163,7 @@ def build_hourly_features(spark: SparkSession, paths: DataPaths) -> DataFrame:
         table = _with_nulls(table, ["gas_price_eur_mwh"])
     else:
         table = table.join(gas.withColumnRenamed("delivery_date", "local_date"), "local_date", "left")
-    return table
+    return add_phase2_features(table)
 
 
 def write_hourly_features(spark: SparkSession, paths: DataPaths) -> int:

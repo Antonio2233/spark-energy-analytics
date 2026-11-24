@@ -30,7 +30,7 @@ def _comparison(frame: pd.DataFrame, actual: str, theme: charts.ChartTheme, incl
     )
 
 
-def render_models(spark: SparkSession, paths: DataPaths, theme: charts.ChartTheme) -> None:
+def _render_demand(spark: SparkSession, paths: DataPaths, theme: charts.ChartTheme) -> None:
     """Show sample coverage, model selection and chronological holdout results."""
     metadata = models.load_metadata(paths)
     if metadata is None:
@@ -88,3 +88,110 @@ def render_models(spark: SparkSession, paths: DataPaths, theme: charts.ChartThem
         f"Monitoring threshold: **{metadata['alert_threshold_mw']:,.0f} MW** — "
         "99th percentile of absolute validation residuals. This screening rule is not a confidence interval."
     )
+
+
+def render_models(spark: SparkSession, paths: DataPaths, theme: charts.ChartTheme) -> None:
+    """Present saved demand, price, renewables and clustering results independently."""
+    import json
+
+    _render_demand(spark, paths, theme)
+    demand = models.load_metadata(paths)
+    if demand and demand.get("features"):
+        st.altair_chart(charts.importance_chart(pd.DataFrame(demand["features"]), theme), width="stretch")
+        st.caption("Demand weights are tree importances or standardized coefficients, not causal effects.")
+    for name in ("price", "renewable_share"):
+        folder = paths.models / name
+        report_path = folder / "metrics.json"
+        st.subheader("Electricity price" if name == "price" else "Renewable share of demand")
+        if not report_path.exists():
+            st.info(f"No saved {name} model. Run scripts/train_models.py --models {name}.")
+            continue
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        st.caption(report["interpretation"])
+        st.write("Selected model:", report["selected"], "Complete hours:", report["rows"])
+        st.caption(f"MAE and RMSE unit: {report['unit']}. All comparisons use identical hours.")
+        records = [{"split": "validation", "source": item["model"], **item} for item in report["candidates"]]
+        records += [{"split": "validation", "source": "t-24h baseline", **report["validation_baseline"]}]
+        records += [
+            {"split": "test", "source": source, **report["test"][source]} for source in ("model", "baseline")
+        ]
+        st.dataframe(pd.DataFrame(records), hide_index=True, width="stretch")
+        st.altair_chart(charts.importance_chart(pd.DataFrame(report["features"]), theme), width="stretch")
+        st.caption(
+            f"Weights: {report['weight_kind']}. "
+            "Correlated inputs may share importance; these are not causal effects."
+        )
+        from spain_electricity.storage import has_parquet
+
+        if has_parquet(folder / "predictions"):
+            frame = (
+                spark.read.parquet(str(folder / "predictions")).orderBy("hour_utc").limit(10000).toPandas()
+            )
+            months = pd.to_datetime(frame.local_date).dt.strftime("%Y-%m")
+            month = st.selectbox("Test month", sorted(months.unique()), key=f"{name}_month")
+            frame = frame[months == month].head(168)
+            frame["segment"] = (
+                pd.to_datetime(frame.hour_utc).astype("datetime64[ns]").astype("int64").diff()
+                > 3_600_000_000_000
+            ).cumsum()
+            series = {
+                report["label"]: "Observed",
+                "prediction": "Model",
+                report["baseline"]: "t-24h baseline",
+            }
+            long = (
+                frame[["hour_utc", "segment", *series]]
+                .rename(columns=series)
+                .melt(id_vars=["hour_utc", "segment"], var_name="series", value_name="value")
+            )
+            st.altair_chart(
+                charts.line_chart(
+                    long,
+                    x="hour_utc",
+                    y="value",
+                    title="Held-out test observations",
+                    y_title=report["unit"],
+                    value_format=".2f",
+                    domain=list(series.values()),
+                    theme=theme,
+                ).encode(detail="segment:N"),
+                width="stretch",
+            )
+            st.caption(
+                "Up to 168 saved test hours, ordered by UTC. Missing periods are gaps in sample coverage."
+            )
+    path = paths.models / "day_types" / "metrics.json"
+    st.subheader("Daily demand types with KMeans")
+    if not path.exists():
+        st.info("No saved day types. Run scripts/train_models.py --models day_types.")
+        return
+    report = json.loads(path.read_text(encoding="utf-8"))
+    st.caption(report["interpretation"])
+    st.write(
+        "Selected k:",
+        report["chosen_k"],
+        "Training days:",
+        report["training_days"],
+        "Assigned days:",
+        report["assigned_days"],
+    )
+    st.dataframe(
+        pd.DataFrame([{"k": k, "silhouette": value} for k, value in report["silhouettes"].items()]),
+        hide_index=True,
+    )
+    summary = pd.DataFrame(report["summary"])
+    st.altair_chart(charts.profiles_chart(summary, theme), width="stretch")
+    st.dataframe(summary.drop(columns="mean_profile"), hide_index=True, width="stretch")
+    with st.expander("Model inputs and sources"):
+        st.markdown(
+            catalog.markdown(
+                catalog.entry(key)
+                for key in (
+                    "spot_price_eur_mwh",
+                    "gas_price_eur_mwh",
+                    "renewable_share",
+                    "demand_mw",
+                    "temperature_c",
+                )
+            )
+        )

@@ -468,3 +468,48 @@ def desk_price_scatter(hourly: pd.DataFrame, theme: ChartTheme = DESK) -> alt.Ch
             ),
         )
     )
+
+
+def importance_chart(weights: pd.DataFrame, theme: ChartTheme) -> alt.Chart:
+    """Show the 15 largest absolute feature weights while retaining their signs."""
+    data = weights.assign(absolute=weights.weight.abs()).nlargest(15, "absolute")
+    return (
+        alt.Chart(data)
+        .mark_bar(color=theme.slots[0])
+        .encode(
+            x=alt.X("weight:Q", title="Weight"),
+            y=alt.Y("feature:N", sort=data.feature.tolist(), title=None, axis=alt.Axis(labelLimit=320)),
+            tooltip=["feature:N", alt.Tooltip("weight:Q", format=".4f")],
+        )
+        .properties(height=max(180, len(data) * 24), title=_title("Feature weights", theme=theme))
+    )
+
+
+def profiles_chart(summary: pd.DataFrame, theme: ChartTheme) -> alt.Chart:
+    """Compare the mean normalized demand curve of each learned day type."""
+    rows = [
+        {"day_type": str(row.day_type), "local_hour": hour, "relative_demand": value}
+        for row in summary.itertuples()
+        for hour, value in enumerate(row.mean_profile)
+    ]
+    data = pd.DataFrame(rows)
+    return (
+        alt.Chart(data)
+        .mark_line(point=True)
+        .encode(
+            x=alt.X(
+                "local_hour:Q",
+                title="Local hour (Europe/Madrid)",
+                axis=alt.Axis(values=list(range(0, 24, 3))),
+            ),
+            y=alt.Y("relative_demand:Q", title="Demand / daily profile mean", scale=alt.Scale(zero=False)),
+            color=alt.Color(
+                "day_type:N",
+                title="Day type",
+                scale=alt.Scale(domain=sorted(data.day_type.unique().tolist()), range=list(theme.slots)),
+                legend=alt.Legend(orient="top"),
+            ),
+            tooltip=["day_type:N", "local_hour:Q", alt.Tooltip("relative_demand:Q", format=".3f")],
+        )
+        .properties(height=300, title=_title("Daily demand profiles", theme=theme))
+    )

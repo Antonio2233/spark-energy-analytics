@@ -259,5 +259,391 @@
   "alert_threshold_mw": 3857.402722493498,
   "alert_calibration": "99th percentile of absolute validation residuals; complete hours only",
   "interpretation": "Contemporaneous weather/calendar estimate, not a day-ahead forecast. Sampled dates do not establish performance over complete years.",
-  "training_seconds": 43.14
+  "training_seconds": 43.14,
+  "features": [
+    {
+      "feature": "temperature_c",
+      "weight": 0.08091993275499774
+    },
+    {
+      "feature": "heating_degrees",
+      "weight": 0.03895420114663025
+    },
+    {
+      "feature": "cooling_degrees",
+      "weight": 0.05676726461077307
+    },
+    {
+      "feature": "hour_sin",
+      "weight": 0.13191434389052972
+    },
+    {
+      "feature": "hour_cos",
+      "weight": 0.1326371962777571
+    },
+    {
+      "feature": "month_sin",
+      "weight": 0.09405480959553397
+    },
+    {
+      "feature": "month_cos",
+      "weight": 0.07271408230376075
+    },
+    {
+      "feature": "holiday_number",
+      "weight": 0.01119387261852764
+    },
+    {
+      "feature": "weekend_number",
+      "weight": 0.07860501758428626
+    },
+    {
+      "feature": "local_hour_encoded_0",
+      "weight": 0.0036559830023439473
+    },
+    {
+      "feature": "local_hour_encoded_1",
+      "weight": 0.0010344512761404862
+    },
+    {
+      "feature": "local_hour_encoded_10",
+      "weight": 0.0028045957435445714
+    },
+    {
+      "feature": "local_hour_encoded_11",
+      "weight": 0.0046972793343685836
+    },
+    {
+      "feature": "local_hour_encoded_12",
+      "weight": 0.00047071685616819443
+    },
+    {
+      "feature": "local_hour_encoded_13",
+      "weight": 0.0006684350632441135
+    },
+    {
+      "feature": "local_hour_encoded_14",
+      "weight": 0.00010017711230923384
+    },
+    {
+      "feature": "local_hour_encoded_15",
+      "weight": 6.895175962618586e-05
+    },
+    {
+      "feature": "local_hour_encoded_16",
+      "weight": 6.527832422549302e-05
+    },
+    {
+      "feature": "local_hour_encoded_17",
+      "weight": 0.00011935617923558108
+    },
+    {
+      "feature": "local_hour_encoded_18",
+      "weight": 0.0014582438670877002
+    },
+    {
+      "feature": "local_hour_encoded_19",
+      "weight": 0.00028996997962057737
+    },
+    {
+      "feature": "local_hour_encoded_2",
+      "weight": 0.001873399410144447
+    },
+    {
+      "feature": "local_hour_encoded_20",
+      "weight": 0.0024420524946072142
+    },
+    {
+      "feature": "local_hour_encoded_21",
+      "weight": 0.007628312561372139
+    },
+    {
+      "feature": "local_hour_encoded_22",
+      "weight": 0.003541488335512611
+    },
+    {
+      "feature": "local_hour_encoded_23",
+      "weight": 0.0025229849292779777
+    },
+    {
+      "feature": "local_hour_encoded_3",
+      "weight": 0.004532175372240265
+    },
+    {
+      "feature": "local_hour_encoded_4",
+      "weight": 0.005607919714494218
+    },
+    {
+      "feature": "local_hour_encoded_5",
+      "weight": 0.0035020293304980697
+    },
+    {
+      "feature": "local_hour_encoded_6",
+      "weight": 0.00031722081391625753
+    },
+    {
+      "feature": "local_hour_encoded_7",
+      "weight": 0.003205281426084322
+    },
+    {
+      "feature": "local_hour_encoded_8",
+      "weight": 0.0008866662669885937
+    },
+    {
+      "feature": "local_hour_encoded_9",
+      "weight": 0.0007110265205089154
+    },
+    {
+      "feature": "local_hour_encoded___unknown",
+      "weight": 0.0
+    },
+    {
+      "feature": "day_of_week_encoded_1",
+      "weight": 0.001460402058059948
+    },
+    {
+      "feature": "day_of_week_encoded_5",
+      "weight": 0.001783518352987693
+    },
+    {
+      "feature": "day_of_week_encoded_6",
+      "weight": 0.011998935122203914
+    },
+    {
+      "feature": "day_of_week_encoded_3",
+      "weight": 0.0016673233660337314
+    },
+    {
+      "feature": "day_of_week_encoded_7",
+      "weight": 0.030369116674576088
+    },
+    {
+      "feature": "day_of_week_encoded_2",
+      "weight": 0.0014328927280978074
+    },
+    {
+      "feature": "day_of_week_encoded_4",
+      "weight": 0.0004753624298255487
+    },
+    {
+      "feature": "day_of_week_encoded___unknown",
+      "weight": 0.0
+    },
+    {
+      "feature": "month_encoded_1",
+      "weight": 0.04151377727889862
+    },
+    {
+      "feature": "month_encoded_10",
+      "weight": 0.037688413539396594
+    },
+    {
+      "feature": "month_encoded_4",
+      "weight": 0.04220540493604227
+    },
+    {
+      "feature": "month_encoded_7",
+      "weight": 0.014941956916064548
+    },
+    {
+      "feature": "month_encoded___unknown",
+      "weight": 0.0
+    },
+    {
+      "feature": "working_hour_encoded_0",
+      "weight": 0.003343579983709492
+    },
+    {
+      "feature": "working_hour_encoded_1",
+      "weight": 0.00036480941264362154
+    },
+    {
+      "feature": "working_hour_encoded_10",
+      "weight": 0.003484170339694254
+    },
+    {
+      "feature": "working_hour_encoded_11",
+      "weight": 0.0019515678670376832
+    },
+    {
+      "feature": "working_hour_encoded_12",
+      "weight": 0.00048734276027532705
+    },
+    {
+      "feature": "working_hour_encoded_13",
+      "weight": 0.0005471314429039922
+    },
+    {
+      "feature": "working_hour_encoded_14",
+      "weight": 7.607430744509664e-06
+    },
+    {
+      "feature": "working_hour_encoded_15",
+      "weight": 6.182674056410812e-06
+    },
+    {
+      "feature": "working_hour_encoded_16",
+      "weight": 2.1160762679496063e-05
+    },
+    {
+      "feature": "working_hour_encoded_17",
+      "weight": 9.354343849821894e-06
+    },
+    {
+      "feature": "working_hour_encoded_18",
+      "weight": 0.0
+    },
+    {
+      "feature": "working_hour_encoded_19",
+      "weight": 0.002934637228391345
+    },
+    {
+      "feature": "working_hour_encoded_2",
+      "weight": 0.0016166360326635865
+    },
+    {
+      "feature": "working_hour_encoded_20",
+      "weight": 0.009800816295674473
+    },
+    {
+      "feature": "working_hour_encoded_21",
+      "weight": 0.0048454800558211586
+    },
+    {
+      "feature": "working_hour_encoded_22",
+      "weight": 0.0016855893331778114
+    },
+    {
+      "feature": "working_hour_encoded_23",
+      "weight": 0.0025301727040324146
+    },
+    {
+      "feature": "working_hour_encoded_3",
+      "weight": 0.0030841447391408306
+    },
+    {
+      "feature": "working_hour_encoded_4",
+      "weight": 0.0049849239977564274
+    },
+    {
+      "feature": "working_hour_encoded_5",
+      "weight": 0.0002548476955851607
+    },
+    {
+      "feature": "working_hour_encoded_6",
+      "weight": 0.0005644204916843183
+    },
+    {
+      "feature": "working_hour_encoded_7",
+      "weight": 0.003105902936296554
+    },
+    {
+      "feature": "working_hour_encoded_8",
+      "weight": 0.002166768181584725
+    },
+    {
+      "feature": "working_hour_encoded_9",
+      "weight": 0.006455567651339833
+    },
+    {
+      "feature": "working_hour_encoded_24",
+      "weight": 0.0007012632943693348
+    },
+    {
+      "feature": "working_hour_encoded_25",
+      "weight": 0.00019298128335325492
+    },
+    {
+      "feature": "working_hour_encoded_26",
+      "weight": 0.00012990046330669088
+    },
+    {
+      "feature": "working_hour_encoded_27",
+      "weight": 0.0004590831604969721
+    },
+    {
+      "feature": "working_hour_encoded_28",
+      "weight": 0.00011790209260489768
+    },
+    {
+      "feature": "working_hour_encoded_29",
+      "weight": 0.00017955035504167583
+    },
+    {
+      "feature": "working_hour_encoded_30",
+      "weight": 9.682608816657214e-05
+    },
+    {
+      "feature": "working_hour_encoded_31",
+      "weight": 0.001387159777420733
+    },
+    {
+      "feature": "working_hour_encoded_32",
+      "weight": 0.0005925714804822243
+    },
+    {
+      "feature": "working_hour_encoded_33",
+      "weight": 0.0010279555243762816
+    },
+    {
+      "feature": "working_hour_encoded_34",
+      "weight": 0.0013382430509336243
+    },
+    {
+      "feature": "working_hour_encoded_35",
+      "weight": 0.0002636930604170826
+    },
+    {
+      "feature": "working_hour_encoded_36",
+      "weight": 0.00027074553336764646
+    },
+    {
+      "feature": "working_hour_encoded_37",
+      "weight": 7.343668391532474e-05
+    },
+    {
+      "feature": "working_hour_encoded_38",
+      "weight": 4.712140844719535e-05
+    },
+    {
+      "feature": "working_hour_encoded_39",
+      "weight": 0.0004475534169577299
+    },
+    {
+      "feature": "working_hour_encoded_40",
+      "weight": 0.00025680416719398415
+    },
+    {
+      "feature": "working_hour_encoded_41",
+      "weight": 0.00023678925633456542
+    },
+    {
+      "feature": "working_hour_encoded_42",
+      "weight": 0.0002493637792375526
+    },
+    {
+      "feature": "working_hour_encoded_43",
+      "weight": 0.00018675094918081084
+    },
+    {
+      "feature": "working_hour_encoded_44",
+      "weight": 0.00044679249891314214
+    },
+    {
+      "feature": "working_hour_encoded_45",
+      "weight": 0.0008956600225360913
+    },
+    {
+      "feature": "working_hour_encoded_46",
+      "weight": 0.00038079009655507236
+    },
+    {
+      "feature": "working_hour_encoded_47",
+      "weight": 0.0002664283371046527
+    },
+    {
+      "feature": "working_hour_encoded___unknown",
+      "weight": 0.0
+    }
+  ]
 }

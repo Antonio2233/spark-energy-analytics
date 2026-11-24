@@ -391,3 +391,26 @@ def markdown(entries: Iterable[Entry]) -> str:
         source = f"[{item.source.name}]({item.source.url})" if item.source.url else item.source.name
         lines.append(f"- **{item.label}**{unit}: {item.description} Source: {source}.")
     return "\n".join(lines)
+
+
+ATTRIBUTES.update(
+    {
+        "is_anomaly": (
+            "",
+            "True on the documented 28 April 2025 blackout date; excluded from model fitting.",
+        ),
+        "iberian_exception": (
+            "",
+            "Legal Iberian adjustment period: 15 June 2022 to 31 December 2023. "
+            "Not an indicator of daily activation.",
+        ),
+        "spot_price_eur_mwh_24h_ago": (
+            "EUR/MWh",
+            "Spot price at exactly 24 elapsed UTC hours before this hour; null across gaps.",
+        ),
+        "renewable_share_24h_ago": (
+            "fraction",
+            "Renewable share at exactly 24 elapsed UTC hours before this hour; null across gaps.",
+        ),
+    }
+)

@@ -2,10 +2,12 @@
 
 import os
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 LOCAL_TIMEZONE = "Europe/Madrid"
 ANOMALY_DATES = ("2025-04-28",)
+IBERIAN_EXCEPTION = (date(2022, 6, 15), date(2023, 12, 31))
 GAS_PRODUCT = "GDAES_D+1"
 DATA_DIR_ENV = "SPAIN_ELECTRICITY_DATA_DIR"
 REPO_ROOT = Path(__file__).resolve().parents[2]

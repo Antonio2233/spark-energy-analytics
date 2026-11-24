@@ -97,3 +97,15 @@ uv run --locked ruff format --check .
 ```
 
 The commands match the repository configuration and the official installation references above. Native macOS execution has not been tested from the current Windows/WSL workstation.
+
+
+## Optional: regenerate Phase 2 results
+
+After preparing the compact demand sample in step 4, use the same Java environment:
+
+```bash
+uv run --locked python scripts/prepare_phase2.py
+uv run --locked python scripts/train_models.py
+```
+
+The saved price, renewable-share and KMeans results can be inspected directly in Models. Preparation downloads only the market references for the seasonal sample. See [Phase 2 models](docs/04-phase-2-models.md). Native macOS execution still requires validation on a Mac.

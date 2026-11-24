@@ -1,0 +1,206 @@
+{
+  "label": "renewable_share",
+  "baseline": "renewable_share_24h_ago",
+  "unit": "fraction of demand",
+  "selected": {
+    "model": "random_forest",
+    "parameters": {
+      "maxDepth": 7
+    }
+  },
+  "candidates": [
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 0.1
+      },
+      "mae": 0.11276734717293964,
+      "rmse": 0.1310671894949264,
+      "r2": 0.4321542541651766
+    },
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 10.0
+      },
+      "mae": 0.16042392317720855,
+      "rmse": 0.17847307524563244,
+      "r2": -0.05290167544002333
+    },
+    {
+      "model": "random_forest",
+      "parameters": {
+        "maxDepth": 4
+      },
+      "mae": 0.10655677961141784,
+      "rmse": 0.12598593210031134,
+      "r2": 0.47532966511818797
+    },
+    {
+      "model": "random_forest",
+      "parameters": {
+        "maxDepth": 7
+      },
+      "mae": 0.10384489188416376,
+      "rmse": 0.1257363191820112,
+      "r2": 0.47740663915557024
+    }
+  ],
+  "validation_baseline": {
+    "mae": 0.06854873415902578,
+    "rmse": 0.0903682424393026,
+    "r2": 0.7300557541524504
+  },
+  "test": {
+    "model": {
+      "mae": 0.15861099550702074,
+      "rmse": 0.18702459796458662,
+      "r2": 0.05027196456281924
+    },
+    "baseline": {
+      "mae": 0.06852066001654056,
+      "rmse": 0.0865078058562542,
+      "r2": 0.7968052922481149
+    },
+    "hours": 288
+  },
+  "features": [
+    {
+      "feature": "wind_speed_100m_kmh",
+      "weight": 0.19272804070681104
+    },
+    {
+      "feature": "shortwave_radiation_wm2",
+      "weight": 0.4985254712970335
+    },
+    {
+      "feature": "local_hour_encoded_0",
+      "weight": 0.0008722007226950306
+    },
+    {
+      "feature": "local_hour_encoded_1",
+      "weight": 0.0005902778640288032
+    },
+    {
+      "feature": "local_hour_encoded_10",
+      "weight": 0.004282070347346243
+    },
+    {
+      "feature": "local_hour_encoded_11",
+      "weight": 0.001993418500714825
+    },
+    {
+      "feature": "local_hour_encoded_12",
+      "weight": 0.005359068448623146
+    },
+    {
+      "feature": "local_hour_encoded_13",
+      "weight": 0.004489740505130158
+    },
+    {
+      "feature": "local_hour_encoded_14",
+      "weight": 0.010450658812972989
+    },
+    {
+      "feature": "local_hour_encoded_15",
+      "weight": 0.007218591428817543
+    },
+    {
+      "feature": "local_hour_encoded_16",
+      "weight": 0.001879536221039082
+    },
+    {
+      "feature": "local_hour_encoded_17",
+      "weight": 0.0024469454267989498
+    },
+    {
+      "feature": "local_hour_encoded_18",
+      "weight": 0.006272367433809247
+    },
+    {
+      "feature": "local_hour_encoded_19",
+      "weight": 0.0019458365224396923
+    },
+    {
+      "feature": "local_hour_encoded_2",
+      "weight": 0.0016044005355662476
+    },
+    {
+      "feature": "local_hour_encoded_20",
+      "weight": 0.004416207745055212
+    },
+    {
+      "feature": "local_hour_encoded_21",
+      "weight": 0.0011767386733496526
+    },
+    {
+      "feature": "local_hour_encoded_22",
+      "weight": 0.0016384061351369346
+    },
+    {
+      "feature": "local_hour_encoded_23",
+      "weight": 0.0018437871933985536
+    },
+    {
+      "feature": "local_hour_encoded_3",
+      "weight": 0.003184009050982288
+    },
+    {
+      "feature": "local_hour_encoded_4",
+      "weight": 0.005454389475137615
+    },
+    {
+      "feature": "local_hour_encoded_5",
+      "weight": 0.006686261317636919
+    },
+    {
+      "feature": "local_hour_encoded_6",
+      "weight": 0.004178876539541767
+    },
+    {
+      "feature": "local_hour_encoded_7",
+      "weight": 0.00029243931273682935
+    },
+    {
+      "feature": "local_hour_encoded_8",
+      "weight": 0.0012952054728170204
+    },
+    {
+      "feature": "local_hour_encoded_9",
+      "weight": 0.0031981378345857705
+    },
+    {
+      "feature": "local_hour_encoded___unknown",
+      "weight": 0.0
+    },
+    {
+      "feature": "month_encoded_1",
+      "weight": 0.011995833532125693
+    },
+    {
+      "feature": "month_encoded_10",
+      "weight": 0.1401969164018265
+    },
+    {
+      "feature": "month_encoded_4",
+      "weight": 0.057966175784497
+    },
+    {
+      "feature": "month_encoded_7",
+      "weight": 0.015817990757345888
+    },
+    {
+      "feature": "month_encoded___unknown",
+      "weight": 0.0
+    }
+  ],
+  "rows": {
+    "train": 1536,
+    "validation": 288,
+    "test": 288
+  },
+  "weight_kind": "tree importance",
+  "trained_at": "2026-11-24T16:28:43.911878+00:00",
+  "training_seconds": 38.39,
+  "interpretation": "Contemporaneous explanatory estimate, not a day-ahead forecast. Baseline is exact UTC t-24h persistence. Results cover available complete hours."
+}

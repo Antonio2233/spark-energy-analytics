@@ -74,7 +74,7 @@ uv run python scripts/prepare_desk_market.py --month 2026-10 --forecast-day 2026
 uv run streamlit run app/streamlit_app.py
 ```
 
-This downloads a bounded sample of 96 days (248 files, about 16 MB on the first run), builds hourly features and compares small linear and Random Forest pipelines. The first training/evaluation run took 43.1 seconds. **Models** shows actual coverage, candidate validation scores, paired REE metrics and the worst errors. Results cover sampled dates, not complete years. Price models and KMeans remain future work. Kafka is out of scope.
+This downloads a bounded sample of 96 days (248 files, about 16 MB on the first run), builds hourly features and compares small linear and Random Forest pipelines. The first training/evaluation run took 43.1 seconds. **Models** shows actual coverage, candidate validation scores, paired REE metrics and the worst errors. Results cover sampled dates, not complete years. Price models and KMeans are described in the Phase 2 section below. Kafka is out of scope.
 
 After training, restart `run_stream.py` to enable a third query with hourly demand estimates and validation-calibrated alerts in **Live**. Live mode uses captured weather; replay uses historical weather. Missing weather and incomplete hours never trigger alerts. See the [demand extension](docs/02-demand-model.md) for the measured accuracy and limitations.
 
@@ -164,3 +164,15 @@ uv run pytest -m integration         # end-to-end Spark, streaming and UI tests
 - `notebooks/`: thin analysis notebooks over the package.
 - `docs/`: plan and documentation.
 - `data/`: only trained models are shared; raw and processed data, local tools and streaming state are ignored.
+
+
+## Phase 2 models
+
+The Models tab includes price and renewable-share regressions, feature weights and KMeans day types. Saved artifacts can be inspected without retraining. To regenerate the compact experiment after preparing the demand sample:
+
+```bash
+uv run python scripts/prepare_phase2.py
+uv run python scripts/train_models.py
+```
+
+Only the 24 price months and six annual gas references needed by the seasonal sample are requested. See [Phase 2 models](docs/04-phase-2-models.md) for features, temporal evaluation, units, DST handling, limitations and `notebooks/02_models.ipynb`. Phase 3 remains out of scope.

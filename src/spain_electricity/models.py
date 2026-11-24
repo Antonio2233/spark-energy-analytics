@@ -227,7 +227,11 @@ def train_demand(spark: SparkSession, paths: DataPaths) -> dict:
         )
         sample_path = paths.root / "demand_sample.json"
         sample = json.loads(sample_path.read_text(encoding="utf-8")) if sample_path.exists() else None
+        from spain_electricity.regression_models import feature_weights
+
+        weights = feature_weights(best, best.transform(frames["validation"]), "unscaled_features")
         result = {
+            "features": weights,
             "trained_at": datetime.now(UTC).isoformat(),
             "selected": selected,
             "candidates": candidates,
