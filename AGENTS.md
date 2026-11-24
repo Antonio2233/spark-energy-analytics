@@ -299,7 +299,7 @@ Do not use `pip install`. `uv.lock` is versioned.
 
 - `regression_models.py`: price/renewable specs, training-only pipelines, small ParamGridBuilder searches, paired t-24h evaluation and named feature weights. `models.py` keeps the demand pipeline and streaming contract.
 - `day_types.py`: complete local-day profiles, DST handling, training-only KMeans selection and saved descriptors. Cluster IDs have no automatic weather names.
-- `scripts/prepare_phase2.py`: at most 24 monthly price requests and six annual gas references, reusing the seasonal demand/weather sample. `scripts/train_models.py` trains new models by default and leaves demand fitting opt-in.
+- `scripts/prepare_phase2.py`: at most 24 monthly price requests and six annual gas references, reusing the seasonal demand/weather sample. `scripts/train_models.py` trains all four models by default (`--models` selects some); each run writes only the folders of the models it trains.
 - `notebooks/02_models.ipynb` reads saved reports through `model_results.py`. See [Phase 2 documentation](docs/04-phase-2-models.md).
 - Iberian exception delivery dates are 2022-06-15 through 2023-12-31, using [Order TED/517/2022](https://www.boe.es/diario_boe/txt.php?id=BOE-A-2022-9435) and [Royal Decree-law 3/2023](https://www.boe.es/buscar/doc.php?id=BOE-A-2023-7937). This is a regime flag, not a daily activation indicator.
 - New regressions use t-24h persistence baselines and include valid negative prices and renewable shares above one. Candidate selection uses 2025 only. The final selected configuration refits on train plus paired validation rows; 2026 is evaluated afterwards.

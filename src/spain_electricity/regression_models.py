@@ -225,21 +225,3 @@ def train(spark: SparkSession, paths: DataPaths, spec: ModelSpec) -> dict:
     finally:
         for frame in frames.values():
             frame.unpersist()
-
-
-def refresh_demand_weights(spark: SparkSession, paths: DataPaths) -> None:
-    """Explain a pre-existing demand pipeline using saved evaluation rows, without refitting."""
-    from spain_electricity.models import add_model_features
-
-    folder = paths.models / "demand"
-    report_path = folder / "metrics.json"
-    if not report_path.exists():
-        return
-    report = json.loads(report_path.read_text(encoding="utf-8"))
-    model = PipelineModel.load(str(folder / "pipeline"))
-    rows = spark.read.parquet(str(folder / "predictions")).limit(1)
-    rows = rows.withColumn("day_of_week", (F.dayofweek("local_date") + 5) % 7 + 1)
-    report["features"] = feature_weights(
-        model, model.transform(add_model_features(rows)), "unscaled_features"
-    )
-    report_path.write_text(json.dumps(report, indent=2, allow_nan=False), encoding="utf-8")
