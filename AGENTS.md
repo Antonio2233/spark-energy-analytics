@@ -16,9 +16,10 @@ Final project for the Big Data course (UMA Master's). Red Eléctrica (REE) data 
 2. `docs/plan.md`: questions, sources, models, streaming, schedule and risks.
 3. `README.md`: getting started, how the pieces fit, and layout.
 4. `docs/01-how-it-works.md`: what every script does, the datasets it writes, the streaming job and the UI tabs.
-5. `docs/02-demand-model.md`: small seasonal sample, trained demand model, baseline evaluation and hourly monitoring.
+5. `docs/02-demand-model.md`: full-history demand model, evaluation against two baselines and hourly monitoring.
 6. `docs/03-energy-desk.md`: live-first market dashboard, source-period alignment and replay/live distinctions.
-7. `README_MAC.md`: native macOS installation, preparation and dashboard launch.
+7. `docs/04-phase-2-models.md`: remaining regressions, temporal evaluation, day types and notebook.
+8. `README_MAC.md`: native macOS installation, preparation and dashboard launch.
 
 ## Language
 
@@ -48,10 +49,11 @@ Do not reopen them unless the team asks.
 | Gas | The daily price is repeated across the 24 hours of the day | MIBGAS publishes daily prices |
 | Use of the day | Correlation and visualization (demand against temperature on the coldest and hottest days), and KMeans on each day's 24-hour curve | Extreme days are read at daily scale |
 | Temporal split | Train 2021–2024, validate 2025, test 2026 | It is a time series: never `randomSplit` |
+| Update with 2026 data | Each regression's configuration selected on 2025 is also refit on every valid hour before `models.UPDATE_CUTOFF` (2026-11-01) and scored on the hours from it, beside the model refit on 2021–2025. Streaming keeps the 2021–2025 demand model | 2026 demand runs above every training year (July: 33,651 MW against 28,553–29,628 MW in 2021–2025). The comparison is required in the final report (`docs/plan.md`) |
 | Demand target | `demand_mw`, the peninsular demand of the 5-minute feed | It is the demand the streaming job sees, so the model trained on the history is the one applied live |
 | Baseline | REE's peninsular demand forecast (field `pre` of `prevProgPeninsula`, see the data sources) | It forecasts the same system as `demand_mw`: on 2025-01-15 (n = 288 five-minute instants) it averages 33 MW below it, with a mean absolute error of 255 MW (0.8%). REData's `Prevista` is national, about 5% above, and only fits `actual_demand_mw` |
 | Anomalies | 2025-04-28, the Iberian blackout, is excluded from training and validation and flagged as an anomaly; it stays in the data and in the UI | Its mean demand was 15,512 MW, the lowest working day of 2021–2026 by far; a model fitted on it would learn a grid failure, not weather or calendar |
-| Iberian exception | Regime change in the price model | Between 2022 and 2023 the price of gas used for electricity was capped (exact dates to be confirmed against the BOE in phase 2) |
+| Iberian exception | Regime flag `iberian_exception` in the price model, for delivery dates 2022-06-15 to 2023-12-31 ([Order TED/517/2022](https://www.boe.es/diario_boe/txt.php?id=BOE-A-2022-9435), [Royal Decree-law 3/2023](https://www.boe.es/buscar/doc.php?id=BOE-A-2023-7937)) | The price of gas used for electricity was capped, which changed how gas sets the electricity price; the flag marks the regime, not daily activation |
 | Real-time outage | Streaming has a replay mode over the history, and the capture catches up missed days on start | On 2026-11-03 REE's actual demand stalled from 10:45 onwards |
 | Weather cities | Madrid, Barcelona, Valencia, Seville and Bilbao, weighted by approximate population (`config.CITIES`) | Spain has no single temperature |
 | Gas price | MIBGAS `GDAES_D+1` (Spanish day-ahead) reference price, assigned to its first delivery day | The day-ahead product traded every day for the next day |
@@ -63,7 +65,7 @@ Do not reopen them unless the team asks.
 
 ## Open decisions
 
-- Whether the mix gets its own model (regression of the renewable share on wind, radiation and hour) or only correlations and KMeans. The description given to the lecturer says the mix is explained with Spark ML.
+- Renewable share has its own explanatory regression, as requested by the team.
 - Kafka was ruled out by the team; keep file-based ingestion.
 
 ## Data sources
@@ -81,7 +83,7 @@ Checked on 2026-11-03, 2026-11-10 and 2026-11-12 with real downloads. Anything n
   - To document before use: `bio`, `gf`, `aut`, `icb`, `conb`, `turb`, `gnhd`, `bat`, `consBat`, `dif`, `vap`.
 - **History:** same format since at least 2012 (checked on days in 2012, 2013, 2014, 2015 and 2021). A day in 2010 returns an empty list.
 - **Real time:** on 2026-11-03 the day's data stopped at 10:45 (queried at 19:18 and 19:24); on 2026-11-10 it worked (17:50 data at 17:58).
-- **Peninsular forecast:** `https://demanda.ree.es/WSvisionaMovilesPeninsulaRest/resources/prevProgPeninsula?callback=cb&curva=DEMANDAAU&fecha=YYYY-MM-DD`, the endpoint REE's own viewer calls (found in its `curvas_demanda.min.js`). Same JSONP format and 30-hour window, `cb({"valoresPrevistaProgramada": [...]})` with 361 records of `ts`, `pre` (forecast) and `pro` (scheduled). Checked on 2025-01-15 and 2021-03-15 (2026-11-12). The demand extension downloads sampled 2025/2026 evaluation days with `sources/ree_forecast.py`.
+- **Peninsular forecast:** `https://demanda.ree.es/WSvisionaMovilesPeninsulaRest/resources/prevProgPeninsula?callback=cb&curva=DEMANDAAU&fecha=YYYY-MM-DD`, the endpoint REE's own viewer calls (found in its `curvas_demanda.min.js`). Same JSONP format and 30-hour window, `cb({"valoresPrevistaProgramada": [...]})` with 361 records of `ts`, `pre` (forecast) and `pro` (scheduled). Checked on 2025-01-15 and 2021-03-15 (2026-11-12). `sources/ree_forecast.py` downloads it as a default source of `download_history.py`: 2,153 days for 2021-01-01 to 2026-11-23, 620,064 readings after ingestion (2026-11-24).
 
 ### REE · REData API (`apidatos.ree.es`)
 
@@ -144,25 +146,37 @@ final_project/
 ├── uv.lock                   exact versions; versioned
 ├── docs/plan.md              project plan
 ├── docs/01-how-it-works.md   phase 1 explained: scripts, datasets, streaming job, UI
-├── docs/02-demand-model.md  small-sample demand model and hourly monitoring
-├── docs/03-energy-desk.md   energy market dashboard and source alignment
+├── docs/02-demand-model.md   demand model, baselines and hourly monitoring
+├── docs/03-energy-desk.md    energy market dashboard and source alignment
+├── docs/04-phase-2-models.md price and renewable-share regressions, day types and notebook
 ├── docs/superpowers/plans/   implementation plans per phase
-├── app/streamlit_app.py      Streamlit UI (Data status, History, Live, Analysis)
-├── scripts/                  download_history, ingest, capture_realtime, replay_history, run_stream
+├── app/streamlit_app.py      Streamlit UI (Live, History, Analysis, Models, Data status)
+├── scripts/                  download_history, ingest, capture_realtime, replay_history, run_stream,
+│                             train_models (all models), train_demand, prepare_demand / prepare_phase2
+│                             (seasonal sample), prepare_desk_market
 ├── notebooks/                analysis and charts; they call the package and hold no logic
 ├── src/spain_electricity/
 │   ├── config.py             data layout, cities, constants
 │   ├── spark_session.py      get_spark / stop_spark: the only way to create and stop the session
 │   ├── download.py           resumable, atomic downloads
 │   ├── periods.py            month helpers
-│   ├── sources/              ree_generation, redata, open_meteo, mibgas: URLs, jobs, readers, ingest
+│   ├── sources/              ree_generation, ree_forecast, redata, open_meteo, mibgas: URLs, jobs, readers, ingest
 │   ├── national_holidays.py
 │   ├── features.py           shared batch/streaming transformations and the hourly table
 │   ├── pipeline.py           what the CLIs download and ingest
+│   ├── storage.py            what counts as data present in a folder
+│   ├── sampling.py           the seasonal sample of days
+│   ├── models.py             demand pipelines, temporal evaluation, refit, update and streaming estimates
+│   ├── regression_models.py  price and renewable-share pipelines
+│   ├── day_types.py          KMeans pipeline on daily demand profiles, with inferred group names
+│   ├── model_results.py      saved model reports and comparison tables for the UI and notebook
 │   ├── capture.py            live capture, catch-up after an outage, replay
 │   ├── streaming.py          Structured Streaming queries
 │   ├── views.py              Spark aggregations for the UI and notebooks
 │   ├── charts.py             Altair charts for the UI: readable names, formatted axes, light and dark colors
+│   ├── desk.py, desk_ui.py   Energy Desk data and drawing
+│   ├── live_runtime.py       in-app live controller (capture and streaming), runtime_ui.py its selector
+│   ├── model_ui.py           Models tab
 │   └── catalog.py            what every series and dataset column means, its unit, source and link
 ├── tests/
 │   ├── conftest.py, helpers.py
@@ -175,16 +189,31 @@ final_project/
     │   ├── redata_demand/YYYY/redata_demand_YYYY-MM.json, redata_price/YYYY/redata_price_YYYY-MM.json
     │   ├── open_meteo/<city>/open_meteo_<city>_YYYY-MM.json
     │   └── mibgas/MIBGAS_Data_YYYY.xlsx (+ csv/ converted)
-    ├── processed/            generation, demand_forecast, market_price, weather, gas_price, hourly_features
+    ├── processed/            generation, peninsular_forecast, demand_forecast, market_price, weather, gas_price,
+    │                         hourly_features
     ├── stream/landing/       ree_generation/, open_meteo_current/ (real-time files read by the stream)
     ├── stream/checkpoints/   one folder per streaming query
-    ├── stream/output/        readings/, windows/batch_id=N/
-    └── models/               saved PipelineModels (phase 2)
+    ├── stream/output/        readings/, windows/batch_id=N/, hourly/ (replay and CLI stream)
+    ├── stream_live/          the same for the in-app live controller
+    └── models/               demand, price, renewable_share (each with update/), day_types: versioned in git
 ```
 
-The demand extension adds `models.py` (small Spark ML pipelines), `sampling.py`, `model_ui.py`, `sources/ree_forecast.py`, and `scripts/prepare_demand.py` / `train_demand.py`. See `docs/02-demand-model.md`; price models and KMeans remain pending.
+The demand extension adds `models.py` (small Spark ML pipelines), `sampling.py`, `model_ui.py`, `sources/ree_forecast.py`, and `scripts/prepare_demand.py` / `train_demand.py`. See `docs/02-demand-model.md`; price models and KMeans are implemented in `regression_models.py` and `day_types.py`; see `docs/04-phase-2-models.md`.
 
 The Energy Desk adds `desk.py`, `desk_ui.py`, `runtime_ui.py` and `live_runtime.py`. Normal users switch Historical / Replay / Real time in the UI; the controller owns capture/streaming with per-viewer leases. Keep the live namespace isolated, start no network work for Historical, and stop only queries owned by the controller. See `docs/03-energy-desk.md`.
+
+### Models (phase 2)
+
+- `regression_models.py`: price/renewable specs, training-only pipelines and paired t-24h evaluation. `models.py` keeps the demand pipeline, the streaming contract and what the three regressions share: the grids, the splits, the update and named feature weights.
+- `day_types.py`: complete local-day profiles, DST handling, training-only KMeans selection (a one-stage `Pipeline`) and saved descriptors. KMeans numbers the groups arbitrarily; `name_day_types` names each one from its share of weekends or holidays and its mean temperature. The names are an inference, and the UI says so.
+- `scripts/prepare_phase2.py`: at most 24 monthly price requests and six annual gas references, reusing the seasonal demand/weather sample. `scripts/train_models.py` trains all four models by default (`--models` selects some); each run writes only the folders of the models it trains.
+- `notebooks/02_models.ipynb` reads saved reports through `model_results.py`. See [Phase 2 documentation](docs/04-phase-2-models.md).
+- Price and renewable share use t-24h persistence baselines and include valid negative prices and renewable shares above one. Candidate selection uses 2025 only.
+- Every regression report has the same shape: `label`, `unit`, `baselines`, `evaluation` (validation and test, model and baselines on the same hours), `split_hours`, `refit`, `update`, `features` and `weight_kind`. `model_results.py` and the Models tab read the three the same way.
+- The demand model retains the 18/22 C degree-hour bases used by its saved pipeline. Do not change serving features without refitting the model.
+- Phase 3 requires the user's explicit instruction and is not started by completing these tasks.
+- Searches: the three regressions loop the same `ParamGridBuilder` grids (`models.GRIDS`): linear regression (6 maps), Random Forest (2) and GBT (4). Each refits its winner on every valid 2021–2025 hour and is tested once on 2026. Demand is scored against REE's peninsular forecast and the same hour 24 h earlier; price and renewable share against the same hour 24 h earlier. Price adds a gas × Iberian-exception interaction, and renewable share uses demand, its denominator, as an input.
+- Update: each regression also refits its winner on every valid hour before `models.UPDATE_CUTOFF` and saves it in `data/models/<name>/update/` (pipeline and predictions), with the report key `update`. It is scored beside the 2021–2025 model on the same paired hours. Without at least 24 such hours, the update is skipped and its folder removed. The Models tab switches between both versions.
 
 ## Using Spark
 
@@ -193,6 +222,7 @@ The Energy Desk adds `desk.py`, `desk_ui.py`, `runtime_ui.py` and `live_runtime.
 - `spain_electricity.spark_session.get_spark` creates the `SparkSession` once per process and returns that same session afterwards, from any thread; `stop_spark()` stops it. Never call `session.stop()` directly, and never build a session with `SparkSession.builder`: Spark's builder rewrites the settings of an existing session.
 - Base configuration: `master("local[*]")`, `spark.sql.session.timeZone=UTC`, a low `spark.sql.shuffle.partitions` locally (for example, 8), and log level `WARN`.
 - **Loopback:** a local session binds the driver to `127.0.0.1`. Task results above 1 MiB, broadcasts and shuffle blocks are fetched from the block manager's address, and the LAN or VPN address Spark picks by default hung silently on a laptop with the firewall in stealth mode (a 3 MB result failed after 96 s; on loopback it took 1.1 s).
+- **Driver memory:** a local session gets `SPAIN_ELECTRICITY_DRIVER_MEMORY` of heap, 6 GB by default (`config.DEFAULT_DRIVER_MEMORY`). Full-history demand training failed with `OutOfMemoryError` on Spark's default 1 GB and finished in 225 s with 6 GB (2026-11-24, 12 cores). It is read only when the JVM starts.
 - PySpark 4.2 (the version used in the labs) with Java 17 or 21. pandas stays below 3: PySpark 4.2.1 warns that it does not fully support pandas 3.
 
 ### Processing

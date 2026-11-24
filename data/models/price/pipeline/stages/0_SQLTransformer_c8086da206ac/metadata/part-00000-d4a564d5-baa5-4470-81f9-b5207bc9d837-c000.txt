@@ -1,0 +1,1 @@
+{"class":"org.apache.spark.ml.feature.SQLTransformer","timestamp":1795558808724,"sparkVersion":"4.2.1","uid":"SQLTransformer_c8086da206ac","paramMap":{"statement":"SELECT *, CAST(iberian_exception AS DOUBLE) AS iberian_exception_number, gas_price_eur_mwh * CAST(iberian_exception AS DOUBLE) AS gas_price_eur_mwh_x_iberian_exception FROM __THIS__"},"defaultParamMap":{}}

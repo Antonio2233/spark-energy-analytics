@@ -1,140 +1,682 @@
 {
-  "trained_at": "2026-11-16T17:19:13.856451+00:00",
+  "label": "demand_mw",
+  "unit": "MW",
+  "baselines": {
+    "ree": "peninsular_forecast_mw",
+    "same_hour_yesterday": "demand_mw_24h_ago"
+  },
+  "features": [
+    {
+      "feature": "temperature_c",
+      "weight": 0.11277723481334166
+    },
+    {
+      "feature": "heating_degrees",
+      "weight": 0.04949774808979739
+    },
+    {
+      "feature": "cooling_degrees",
+      "weight": 0.025087757731420402
+    },
+    {
+      "feature": "hour_sin",
+      "weight": 0.15481535829210244
+    },
+    {
+      "feature": "hour_cos",
+      "weight": 0.1460575205755823
+    },
+    {
+      "feature": "month_sin",
+      "weight": 0.0456275317926504
+    },
+    {
+      "feature": "month_cos",
+      "weight": 0.07864423519154283
+    },
+    {
+      "feature": "holiday_number",
+      "weight": 0.027227351069305475
+    },
+    {
+      "feature": "weekend_number",
+      "weight": 0.11100549124988109
+    },
+    {
+      "feature": "local_hour_encoded_1",
+      "weight": 0.006151360607737305
+    },
+    {
+      "feature": "local_hour_encoded_10",
+      "weight": 3.8607008171521766e-05
+    },
+    {
+      "feature": "local_hour_encoded_11",
+      "weight": 0.0002897782654836742
+    },
+    {
+      "feature": "local_hour_encoded_12",
+      "weight": 0.0006424890962487378
+    },
+    {
+      "feature": "local_hour_encoded_13",
+      "weight": 0.0009835157365140352
+    },
+    {
+      "feature": "local_hour_encoded_14",
+      "weight": 9.616455243016308e-05
+    },
+    {
+      "feature": "local_hour_encoded_15",
+      "weight": 0.0011380731876669647
+    },
+    {
+      "feature": "local_hour_encoded_16",
+      "weight": 0.004904185040551881
+    },
+    {
+      "feature": "local_hour_encoded_17",
+      "weight": 0.0026833549431208806
+    },
+    {
+      "feature": "local_hour_encoded_18",
+      "weight": 0.00019446152531138548
+    },
+    {
+      "feature": "local_hour_encoded_19",
+      "weight": 0.0032323002877928443
+    },
+    {
+      "feature": "local_hour_encoded_2",
+      "weight": 0.0005171878366770084
+    },
+    {
+      "feature": "local_hour_encoded_20",
+      "weight": 0.01687136083060292
+    },
+    {
+      "feature": "local_hour_encoded_21",
+      "weight": 0.007245952151609507
+    },
+    {
+      "feature": "local_hour_encoded_22",
+      "weight": 0.008070473885815577
+    },
+    {
+      "feature": "local_hour_encoded_23",
+      "weight": 0.005175577709418431
+    },
+    {
+      "feature": "local_hour_encoded_3",
+      "weight": 0.0002782984004081351
+    },
+    {
+      "feature": "local_hour_encoded_4",
+      "weight": 0.0004350306447598805
+    },
+    {
+      "feature": "local_hour_encoded_5",
+      "weight": 1.9144411437748324e-05
+    },
+    {
+      "feature": "local_hour_encoded_6",
+      "weight": 0.00010621168901195665
+    },
+    {
+      "feature": "local_hour_encoded_7",
+      "weight": 0.002683170681143501
+    },
+    {
+      "feature": "local_hour_encoded_8",
+      "weight": 0.0008189962560500761
+    },
+    {
+      "feature": "local_hour_encoded_9",
+      "weight": 0.0014408507652867114
+    },
+    {
+      "feature": "local_hour_encoded_0",
+      "weight": 0.0011813660124910578
+    },
+    {
+      "feature": "local_hour_encoded___unknown",
+      "weight": 0.0
+    },
+    {
+      "feature": "day_of_week_encoded_2",
+      "weight": 0.0016964735692462242
+    },
+    {
+      "feature": "day_of_week_encoded_3",
+      "weight": 0.00250681139495488
+    },
+    {
+      "feature": "day_of_week_encoded_6",
+      "weight": 0.010154185279482439
+    },
+    {
+      "feature": "day_of_week_encoded_7",
+      "weight": 0.0114416059747705
+    },
+    {
+      "feature": "day_of_week_encoded_5",
+      "weight": 0.00920991592778612
+    },
+    {
+      "feature": "day_of_week_encoded_1",
+      "weight": 0.01718818743712544
+    },
+    {
+      "feature": "day_of_week_encoded_4",
+      "weight": 0.0009916231580218912
+    },
+    {
+      "feature": "day_of_week_encoded___unknown",
+      "weight": 0.0
+    },
+    {
+      "feature": "month_encoded_10",
+      "weight": 0.0007090178250806885
+    },
+    {
+      "feature": "month_encoded_12",
+      "weight": 0.015525333876094238
+    },
+    {
+      "feature": "month_encoded_5",
+      "weight": 0.004470762323872028
+    },
+    {
+      "feature": "month_encoded_7",
+      "weight": 0.013786041496510137
+    },
+    {
+      "feature": "month_encoded_8",
+      "weight": 0.005597925642115328
+    },
+    {
+      "feature": "month_encoded_1",
+      "weight": 0.0006982982504443389
+    },
+    {
+      "feature": "month_encoded_3",
+      "weight": 0.0056998839827950365
+    },
+    {
+      "feature": "month_encoded_11",
+      "weight": 0.00395197108734005
+    },
+    {
+      "feature": "month_encoded_6",
+      "weight": 0.0049245767737752634
+    },
+    {
+      "feature": "month_encoded_9",
+      "weight": 0.010415635601940454
+    },
+    {
+      "feature": "month_encoded_4",
+      "weight": 0.002557888512168524
+    },
+    {
+      "feature": "month_encoded_2",
+      "weight": 0.0032918359608074287
+    },
+    {
+      "feature": "month_encoded___unknown",
+      "weight": 0.0
+    },
+    {
+      "feature": "working_hour_encoded_0",
+      "weight": 0.004245427337471558
+    },
+    {
+      "feature": "working_hour_encoded_1",
+      "weight": 0.00013325995688012846
+    },
+    {
+      "feature": "working_hour_encoded_10",
+      "weight": 0.0004279509130351422
+    },
+    {
+      "feature": "working_hour_encoded_11",
+      "weight": 0.0006944941740776327
+    },
+    {
+      "feature": "working_hour_encoded_12",
+      "weight": 0.0009351943416880465
+    },
+    {
+      "feature": "working_hour_encoded_13",
+      "weight": 0.0004904444565155887
+    },
+    {
+      "feature": "working_hour_encoded_14",
+      "weight": 0.0005486540799707221
+    },
+    {
+      "feature": "working_hour_encoded_15",
+      "weight": 0.0002260751242244849
+    },
+    {
+      "feature": "working_hour_encoded_16",
+      "weight": 9.184605557372553e-05
+    },
+    {
+      "feature": "working_hour_encoded_17",
+      "weight": 7.113395645154042e-05
+    },
+    {
+      "feature": "working_hour_encoded_18",
+      "weight": 4.4672759516546974e-05
+    },
+    {
+      "feature": "working_hour_encoded_19",
+      "weight": 0.0008038980643302735
+    },
+    {
+      "feature": "working_hour_encoded_2",
+      "weight": 0.0012203913662008326
+    },
+    {
+      "feature": "working_hour_encoded_20",
+      "weight": 0.0013840868854150432
+    },
+    {
+      "feature": "working_hour_encoded_21",
+      "weight": 0.0009508510754239511
+    },
+    {
+      "feature": "working_hour_encoded_22",
+      "weight": 0.004972491895648974
+    },
+    {
+      "feature": "working_hour_encoded_23",
+      "weight": 0.0013503307291752016
+    },
+    {
+      "feature": "working_hour_encoded_3",
+      "weight": 0.00020546741300790723
+    },
+    {
+      "feature": "working_hour_encoded_4",
+      "weight": 0.00013433155103383535
+    },
+    {
+      "feature": "working_hour_encoded_5",
+      "weight": 0.0021552270809496368
+    },
+    {
+      "feature": "working_hour_encoded_6",
+      "weight": 0.006439784082603842
+    },
+    {
+      "feature": "working_hour_encoded_7",
+      "weight": 0.009389385093336302
+    },
+    {
+      "feature": "working_hour_encoded_8",
+      "weight": 0.0019985712900332333
+    },
+    {
+      "feature": "working_hour_encoded_9",
+      "weight": 0.003099162110964026
+    },
+    {
+      "feature": "working_hour_encoded_25",
+      "weight": 0.0007604249353435723
+    },
+    {
+      "feature": "working_hour_encoded_26",
+      "weight": 1.714689679107315e-05
+    },
+    {
+      "feature": "working_hour_encoded_27",
+      "weight": 0.00023022342568931745
+    },
+    {
+      "feature": "working_hour_encoded_28",
+      "weight": 0.001136230890218454
+    },
+    {
+      "feature": "working_hour_encoded_29",
+      "weight": 0.001145429294647467
+    },
+    {
+      "feature": "working_hour_encoded_30",
+      "weight": 7.559455300348999e-05
+    },
+    {
+      "feature": "working_hour_encoded_31",
+      "weight": 0.0005744414089158874
+    },
+    {
+      "feature": "working_hour_encoded_32",
+      "weight": 0.0008371551443657827
+    },
+    {
+      "feature": "working_hour_encoded_33",
+      "weight": 0.0011438512742971113
+    },
+    {
+      "feature": "working_hour_encoded_34",
+      "weight": 0.00021884673522868953
+    },
+    {
+      "feature": "working_hour_encoded_35",
+      "weight": 0.0004577469440291532
+    },
+    {
+      "feature": "working_hour_encoded_36",
+      "weight": 0.0005454400775307383
+    },
+    {
+      "feature": "working_hour_encoded_37",
+      "weight": 0.0011936767248287461
+    },
+    {
+      "feature": "working_hour_encoded_38",
+      "weight": 0.0005764213738351805
+    },
+    {
+      "feature": "working_hour_encoded_39",
+      "weight": 5.9047366618127416e-05
+    },
+    {
+      "feature": "working_hour_encoded_40",
+      "weight": 0.00013792418058503755
+    },
+    {
+      "feature": "working_hour_encoded_41",
+      "weight": 0.0001782972452593781
+    },
+    {
+      "feature": "working_hour_encoded_42",
+      "weight": 4.635478240140771e-05
+    },
+    {
+      "feature": "working_hour_encoded_43",
+      "weight": 0.00014946595670382152
+    },
+    {
+      "feature": "working_hour_encoded_44",
+      "weight": 0.0004990209183562312
+    },
+    {
+      "feature": "working_hour_encoded_45",
+      "weight": 0.003973754381864538
+    },
+    {
+      "feature": "working_hour_encoded_46",
+      "weight": 0.0025459023836300796
+    },
+    {
+      "feature": "working_hour_encoded_47",
+      "weight": 0.0006652828430326725
+    },
+    {
+      "feature": "working_hour_encoded_24",
+      "weight": 6.307406359942224e-05
+    },
+    {
+      "feature": "working_hour_encoded___unknown",
+      "weight": 0.0
+    }
+  ],
+  "weight_kind": "tree importance",
+  "trained_at": "2026-11-24T22:34:48.256165+00:00",
   "selected": {
-    "model": "random_forest",
+    "model": "gbt",
     "parameters": {
-      "depth": 8
+      "maxIter": 120,
+      "maxDepth": 6
     }
   },
   "candidates": [
     {
       "model": "linear",
       "parameters": {
-        "strength": 0.1
+        "regParam": 0.1,
+        "elasticNetParam": 0.0
       },
-      "mae": 1593.3567268299187,
-      "rmse": 1980.1496101323978,
-      "r2": 0.8280090373975715
+      "mae": 1477.7862203023728,
+      "rmse": 1891.831836320642,
+      "r2": 0.8153183787593887,
+      "bias": 359.39921421584955
     },
     {
       "model": "linear",
       "parameters": {
-        "strength": 10.0
+        "regParam": 0.1,
+        "elasticNetParam": 0.5
       },
-      "mae": 1593.0555090738992,
-      "rmse": 1976.821971569195,
-      "r2": 0.8285866128111927
+      "mae": 1477.873575593342,
+      "rmse": 1892.002885038441,
+      "r2": 0.8152849815176445,
+      "bias": 359.53795403538174
+    },
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 1.0,
+        "elasticNetParam": 0.0
+      },
+      "mae": 1477.596642442408,
+      "rmse": 1891.642751641593,
+      "r2": 0.8153552940066047,
+      "bias": 359.26836557583607
+    },
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 1.0,
+        "elasticNetParam": 0.5
+      },
+      "mae": 1475.1388415768104,
+      "rmse": 1888.7418384381242,
+      "r2": 0.8159211805126813,
+      "bias": 358.2007621456857
+    },
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 10.0,
+        "elasticNetParam": 0.0
+      },
+      "mae": 1476.2143450868462,
+      "rmse": 1890.3160006730989,
+      "r2": 0.8156142135427882,
+      "bias": 358.2020556780477
+    },
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 10.0,
+        "elasticNetParam": 0.5
+      },
+      "mae": 1475.614768884451,
+      "rmse": 1892.717272307953,
+      "r2": 0.8151454648485474,
+      "bias": 355.6615204104796
     },
     {
       "model": "random_forest",
       "parameters": {
-        "depth": 5
+        "numTrees": 60,
+        "maxDepth": 8
       },
-      "mae": 1828.340931763412,
-      "rmse": 2321.4855345608626,
-      "r2": 0.7636032063635456
+      "mae": 1349.0278046116553,
+      "rmse": 1732.815929813584,
+      "r2": 0.8450600246020471,
+      "bias": 275.8883746325385
     },
     {
       "model": "random_forest",
       "parameters": {
-        "depth": 8
+        "numTrees": 60,
+        "maxDepth": 12
       },
-      "mae": 1271.077535374838,
-      "rmse": 1604.880019393201,
-      "r2": 0.8870217721329502
+      "mae": 1128.603366755933,
+      "rmse": 1500.6858927915712,
+      "r2": 0.8837914134022412,
+      "bias": 222.67322352904952
+    },
+    {
+      "model": "gbt",
+      "parameters": {
+        "maxIter": 60,
+        "maxDepth": 4
+      },
+      "mae": 1229.4756909187715,
+      "rmse": 1627.6154666714247,
+      "r2": 0.8633019764314414,
+      "bias": 246.1667708950284
+    },
+    {
+      "model": "gbt",
+      "parameters": {
+        "maxIter": 60,
+        "maxDepth": 6
+      },
+      "mae": 1137.0416526490133,
+      "rmse": 1544.235673330056,
+      "r2": 0.8769488205392242,
+      "bias": 195.7935014828563
+    },
+    {
+      "model": "gbt",
+      "parameters": {
+        "maxIter": 120,
+        "maxDepth": 4
+      },
+      "mae": 1156.935002528796,
+      "rmse": 1547.6495544959253,
+      "r2": 0.8764041543922495,
+      "bias": 204.78460438774357
+    },
+    {
+      "model": "gbt",
+      "parameters": {
+        "maxIter": 120,
+        "maxDepth": 6
+      },
+      "mae": 1098.631151914598,
+      "rmse": 1510.0952051967936,
+      "r2": 0.8823295873818415,
+      "bias": 172.11660315627557
     }
   ],
   "evaluation": {
     "validation": {
       "model": {
-        "mae": 1271.077535374838,
-        "rmse": 1604.880019393201,
-        "r2": 0.8870217721329502
+        "mae": 1098.631151914598,
+        "rmse": 1510.0952051967936,
+        "r2": 0.8823295873818415,
+        "bias": 172.11660315627557
       },
       "ree": {
-        "mae": 266.88281249999966,
-        "rmse": 360.7426092704176,
-        "r2": 0.994291730059798
+        "mae": 256.0009374043465,
+        "rmse": 359.69460594806355,
+        "r2": 0.9933238441053736,
+        "bias": -0.5200872359963311
       },
-      "hours": 384
+      "same_hour_yesterday": {
+        "mae": 1802.8286558769505,
+        "rmse": 2687.429715738216,
+        "r2": 0.6273227783795021,
+        "bias": 2.0894647229874375
+      },
+      "hours": 8712
     },
     "test": {
       "model": {
-        "mae": 2672.608923858277,
-        "rmse": 3357.115038626037,
-        "r2": 0.7007917838509378
+        "mae": 2481.5825431275994,
+        "rmse": 3107.219612796141,
+        "r2": 0.6608187276345137,
+        "bias": 2370.415779331425
       },
       "ree": {
-        "mae": 283.9192708333333,
-        "rmse": 376.6615594118169,
-        "r2": 0.9962334505974918
+        "mae": 262.3804047740398,
+        "rmse": 360.30577952090334,
+        "r2": 0.9954393113679644,
+        "bias": -8.63758282364934
       },
-      "hours": 384
+      "same_hour_yesterday": {
+        "mae": 1861.5282556065247,
+        "rmse": 2785.6800152604887,
+        "r2": 0.727384576371648,
+        "bias": 7.539213812436277
+      },
+      "hours": 7848
     }
   },
   "split_hours": {
-    "train": 1536,
-    "validation": 384,
-    "test": 384
+    "train": 35063,
+    "validation": 8712,
+    "test": 7848
+  },
+  "refit": {
+    "years": "2021-2025",
+    "hours": 43799
   },
   "audit": {
     "by_year": [
       {
         "year": 2021,
-        "hours": 384,
-        "days": 16,
-        "first": "2021-01-07 23:00:00",
-        "last": "2021-10-17 21:00:00",
+        "hours": 8760,
+        "days": 365,
+        "first": "2021-01-01 00:00:00",
+        "last": "2021-12-31 23:00:00",
         "missing_demand_mw": 0,
-        "missing_temperature_c": 0,
-        "missing_peninsular_forecast_mw": 384
+        "missing_temperature_c": 1,
+        "missing_peninsular_forecast_mw": 0
       },
       {
         "year": 2022,
-        "hours": 384,
-        "days": 16,
-        "first": "2022-01-10 23:00:00",
-        "last": "2022-10-13 21:00:00",
+        "hours": 8760,
+        "days": 365,
+        "first": "2022-01-01 00:00:00",
+        "last": "2022-12-31 23:00:00",
         "missing_demand_mw": 0,
         "missing_temperature_c": 0,
-        "missing_peninsular_forecast_mw": 384
+        "missing_peninsular_forecast_mw": 0
       },
       {
         "year": 2023,
-        "hours": 384,
-        "days": 16,
-        "first": "2023-01-13 23:00:00",
-        "last": "2023-10-16 21:00:00",
+        "hours": 8760,
+        "days": 365,
+        "first": "2023-01-01 00:00:00",
+        "last": "2023-12-31 23:00:00",
         "missing_demand_mw": 0,
         "missing_temperature_c": 0,
-        "missing_peninsular_forecast_mw": 384
+        "missing_peninsular_forecast_mw": 0
       },
       {
         "year": 2024,
-        "hours": 384,
-        "days": 16,
-        "first": "2024-01-09 23:00:00",
-        "last": "2024-10-12 21:00:00",
+        "hours": 8784,
+        "days": 366,
+        "first": "2024-01-01 00:00:00",
+        "last": "2024-12-31 23:00:00",
         "missing_demand_mw": 0,
         "missing_temperature_c": 0,
-        "missing_peninsular_forecast_mw": 384
+        "missing_peninsular_forecast_mw": 0
       },
       {
         "year": 2025,
-        "hours": 384,
-        "days": 16,
-        "first": "2025-01-12 23:00:00",
-        "last": "2025-10-15 21:00:00",
+        "hours": 8760,
+        "days": 365,
+        "first": "2025-01-01 00:00:00",
+        "last": "2025-12-31 23:00:00",
         "missing_demand_mw": 0,
         "missing_temperature_c": 0,
         "missing_peninsular_forecast_mw": 0
       },
       {
         "year": 2026,
-        "hours": 384,
-        "days": 16,
-        "first": "2026-01-08 23:00:00",
-        "last": "2026-10-11 21:00:00",
+        "hours": 7848,
+        "days": 327,
+        "first": "2026-01-01 00:00:00",
+        "last": "2026-11-23 23:00:00",
         "missing_demand_mw": 0,
         "missing_temperature_c": 0,
         "missing_peninsular_forecast_mw": 0
@@ -142,122 +684,468 @@
     ],
     "duplicate_hours": 0
   },
-  "sample": {
-    "strategy": "Rotating four-season blocks, not complete years; sampled 2026 evaluation only.",
-    "days_per_season": 4,
-    "requested_days": [
-      "2021-01-08",
-      "2021-01-09",
-      "2021-01-10",
-      "2021-01-11",
-      "2021-04-10",
-      "2021-04-11",
-      "2021-04-12",
-      "2021-04-13",
-      "2021-07-12",
-      "2021-07-13",
-      "2021-07-14",
-      "2021-07-15",
-      "2021-10-14",
-      "2021-10-15",
-      "2021-10-16",
-      "2021-10-17",
-      "2022-01-11",
-      "2022-01-12",
-      "2022-01-13",
-      "2022-01-14",
-      "2022-04-13",
-      "2022-04-14",
-      "2022-04-15",
-      "2022-04-16",
-      "2022-07-08",
-      "2022-07-09",
-      "2022-07-10",
-      "2022-07-11",
-      "2022-10-10",
-      "2022-10-11",
-      "2022-10-12",
-      "2022-10-13",
-      "2023-01-14",
-      "2023-01-15",
-      "2023-01-16",
-      "2023-01-17",
-      "2023-04-09",
-      "2023-04-10",
-      "2023-04-11",
-      "2023-04-12",
-      "2023-07-11",
-      "2023-07-12",
-      "2023-07-13",
-      "2023-07-14",
-      "2023-10-13",
-      "2023-10-14",
-      "2023-10-15",
-      "2023-10-16",
-      "2024-01-10",
-      "2024-01-11",
-      "2024-01-12",
-      "2024-01-13",
-      "2024-04-12",
-      "2024-04-13",
-      "2024-04-14",
-      "2024-04-15",
-      "2024-07-14",
-      "2024-07-15",
-      "2024-07-16",
-      "2024-07-17",
-      "2024-10-09",
-      "2024-10-10",
-      "2024-10-11",
-      "2024-10-12",
-      "2025-01-13",
-      "2025-01-14",
-      "2025-01-15",
-      "2025-01-16",
-      "2025-04-08",
-      "2025-04-09",
-      "2025-04-10",
-      "2025-04-11",
-      "2025-07-10",
-      "2025-07-11",
-      "2025-07-12",
-      "2025-07-13",
-      "2025-10-12",
-      "2025-10-13",
-      "2025-10-14",
-      "2025-10-15",
-      "2026-01-09",
-      "2026-01-10",
-      "2026-01-11",
-      "2026-01-12",
-      "2026-04-11",
-      "2026-04-12",
-      "2026-04-13",
-      "2026-04-14",
-      "2026-07-13",
-      "2026-07-14",
-      "2026-07-15",
-      "2026-07-16",
-      "2026-10-08",
-      "2026-10-09",
-      "2026-10-10",
-      "2026-10-11"
-    ],
-    "days_by_year": {
-      "2021": 16,
-      "2022": 16,
-      "2023": 16,
-      "2024": 16,
-      "2025": 16,
-      "2026": 16
-    },
-    "requested_files": 248,
-    "fetched": 248,
-    "skipped": 0,
-    "failed": []
+  "sample": null,
+  "alert_threshold_mw": 4664.150621519071,
+  "alert_calibration": "99th percentile of absolute 2025 residuals, model fitted on 2021-2024",
+  "alert_rate": {
+    "validation": 0.009986225895316805,
+    "test": 0.14984709480122324
   },
-  "alert_threshold_mw": 3857.402722493498,
-  "alert_calibration": "99th percentile of absolute validation residuals; complete hours only",
-  "interpretation": "Contemporaneous weather/calendar estimate, not a day-ahead forecast. Sampled dates do not establish performance over complete years.",
-  "training_seconds": 43.14
+  "update": {
+    "train_until": "2026-10-31",
+    "training_hours": 51095,
+    "evaluated_from": "2026-11-01",
+    "evaluated_until": "2026-11-23",
+    "evaluation": {
+      "model": {
+        "mae": 2031.906089163737,
+        "rmse": 2401.719227841768,
+        "r2": 0.7230698282996955,
+        "bias": 1868.762613703914
+      },
+      "model_through_2025": {
+        "mae": 2098.721196180692,
+        "rmse": 2490.764237128965,
+        "r2": 0.7021544966693354,
+        "bias": 1931.887509146106
+      },
+      "ree": {
+        "mae": 300.51283212560395,
+        "rmse": 441.3288361800321,
+        "r2": 0.9906491645452937,
+        "bias": -41.0774456521739
+      },
+      "same_hour_yesterday": {
+        "mae": 1994.413496376812,
+        "rmse": 2782.2212540149953,
+        "r2": 0.6283713968960942,
+        "bias": 199.32291666666666
+      },
+      "hours": 552
+    },
+    "alert_rate": {
+      "model": 0.018115942028985508,
+      "model_through_2025": 0.019927536231884056
+    },
+    "features": [
+      {
+        "feature": "temperature_c",
+        "weight": 0.09803148551378918
+      },
+      {
+        "feature": "heating_degrees",
+        "weight": 0.06760424580943701
+      },
+      {
+        "feature": "cooling_degrees",
+        "weight": 0.049978534647793345
+      },
+      {
+        "feature": "hour_sin",
+        "weight": 0.15378822372358983
+      },
+      {
+        "feature": "hour_cos",
+        "weight": 0.15020863482914432
+      },
+      {
+        "feature": "month_sin",
+        "weight": 0.04667903600332955
+      },
+      {
+        "feature": "month_cos",
+        "weight": 0.06291797769781025
+      },
+      {
+        "feature": "holiday_number",
+        "weight": 0.03657405085335094
+      },
+      {
+        "feature": "weekend_number",
+        "weight": 0.1019714386478172
+      },
+      {
+        "feature": "local_hour_encoded_1",
+        "weight": 0.003269800962476197
+      },
+      {
+        "feature": "local_hour_encoded_10",
+        "weight": 0.00046636446919816175
+      },
+      {
+        "feature": "local_hour_encoded_11",
+        "weight": 0.00031002019395781665
+      },
+      {
+        "feature": "local_hour_encoded_12",
+        "weight": 0.0004650828689515707
+      },
+      {
+        "feature": "local_hour_encoded_13",
+        "weight": 0.0003802881359557051
+      },
+      {
+        "feature": "local_hour_encoded_14",
+        "weight": 0.0007127999590048581
+      },
+      {
+        "feature": "local_hour_encoded_15",
+        "weight": 0.001444847805761545
+      },
+      {
+        "feature": "local_hour_encoded_16",
+        "weight": 0.002026496451112306
+      },
+      {
+        "feature": "local_hour_encoded_17",
+        "weight": 0.0006579284667757542
+      },
+      {
+        "feature": "local_hour_encoded_18",
+        "weight": 4.4863137621088334e-05
+      },
+      {
+        "feature": "local_hour_encoded_19",
+        "weight": 0.001949494816464968
+      },
+      {
+        "feature": "local_hour_encoded_2",
+        "weight": 0.0007102102914031001
+      },
+      {
+        "feature": "local_hour_encoded_20",
+        "weight": 0.011541317113006546
+      },
+      {
+        "feature": "local_hour_encoded_21",
+        "weight": 0.008987381978195486
+      },
+      {
+        "feature": "local_hour_encoded_22",
+        "weight": 0.0014112845175492334
+      },
+      {
+        "feature": "local_hour_encoded_23",
+        "weight": 0.022142990424350913
+      },
+      {
+        "feature": "local_hour_encoded_3",
+        "weight": 0.0004769157409731988
+      },
+      {
+        "feature": "local_hour_encoded_4",
+        "weight": 0.00016268901984301212
+      },
+      {
+        "feature": "local_hour_encoded_5",
+        "weight": 0.00018964228178028995
+      },
+      {
+        "feature": "local_hour_encoded_6",
+        "weight": 0.00019927168494182344
+      },
+      {
+        "feature": "local_hour_encoded_7",
+        "weight": 0.006372419801238527
+      },
+      {
+        "feature": "local_hour_encoded_8",
+        "weight": 0.0007444538480807122
+      },
+      {
+        "feature": "local_hour_encoded_9",
+        "weight": 0.000984455921103245
+      },
+      {
+        "feature": "local_hour_encoded_0",
+        "weight": 0.000282457924913086
+      },
+      {
+        "feature": "local_hour_encoded___unknown",
+        "weight": 0.0
+      },
+      {
+        "feature": "day_of_week_encoded_6",
+        "weight": 0.006690454450259355
+      },
+      {
+        "feature": "day_of_week_encoded_5",
+        "weight": 0.00764510994342225
+      },
+      {
+        "feature": "day_of_week_encoded_2",
+        "weight": 0.0020566549978195186
+      },
+      {
+        "feature": "day_of_week_encoded_3",
+        "weight": 0.0028559497633276663
+      },
+      {
+        "feature": "day_of_week_encoded_4",
+        "weight": 0.002048157668345197
+      },
+      {
+        "feature": "day_of_week_encoded_7",
+        "weight": 0.014859018258025389
+      },
+      {
+        "feature": "day_of_week_encoded_1",
+        "weight": 0.014852944116993764
+      },
+      {
+        "feature": "day_of_week_encoded___unknown",
+        "weight": 0.0
+      },
+      {
+        "feature": "month_encoded_10",
+        "weight": 0.00017488389271381658
+      },
+      {
+        "feature": "month_encoded_5",
+        "weight": 0.0018046751135469227
+      },
+      {
+        "feature": "month_encoded_7",
+        "weight": 0.0018357633517935609
+      },
+      {
+        "feature": "month_encoded_8",
+        "weight": 0.008299510932432473
+      },
+      {
+        "feature": "month_encoded_1",
+        "weight": 0.0006872195591017597
+      },
+      {
+        "feature": "month_encoded_3",
+        "weight": 0.005709527178838492
+      },
+      {
+        "feature": "month_encoded_6",
+        "weight": 0.0005409904330660661
+      },
+      {
+        "feature": "month_encoded_9",
+        "weight": 0.005309543319352976
+      },
+      {
+        "feature": "month_encoded_4",
+        "weight": 0.000268515922848596
+      },
+      {
+        "feature": "month_encoded_2",
+        "weight": 0.003749143034577061
+      },
+      {
+        "feature": "month_encoded_12",
+        "weight": 0.008622353819963242
+      },
+      {
+        "feature": "month_encoded_11",
+        "weight": 0.0003793065982368458
+      },
+      {
+        "feature": "month_encoded___unknown",
+        "weight": 0.0
+      },
+      {
+        "feature": "working_hour_encoded_0",
+        "weight": 0.004943928720786608
+      },
+      {
+        "feature": "working_hour_encoded_1",
+        "weight": 0.00021531791976622426
+      },
+      {
+        "feature": "working_hour_encoded_10",
+        "weight": 0.0013402780947426487
+      },
+      {
+        "feature": "working_hour_encoded_11",
+        "weight": 0.0006987853535976334
+      },
+      {
+        "feature": "working_hour_encoded_12",
+        "weight": 0.0018286195324607258
+      },
+      {
+        "feature": "working_hour_encoded_13",
+        "weight": 0.002659201791954754
+      },
+      {
+        "feature": "working_hour_encoded_14",
+        "weight": 0.0007949324636892383
+      },
+      {
+        "feature": "working_hour_encoded_15",
+        "weight": 0.0003293908036217168
+      },
+      {
+        "feature": "working_hour_encoded_16",
+        "weight": 2.1357629962798285e-05
+      },
+      {
+        "feature": "working_hour_encoded_17",
+        "weight": 0.00030368644888996394
+      },
+      {
+        "feature": "working_hour_encoded_18",
+        "weight": 0.0003169866660621879
+      },
+      {
+        "feature": "working_hour_encoded_19",
+        "weight": 1.2610792586891099e-05
+      },
+      {
+        "feature": "working_hour_encoded_2",
+        "weight": 0.00032022340253816026
+      },
+      {
+        "feature": "working_hour_encoded_20",
+        "weight": 0.0007834171635184772
+      },
+      {
+        "feature": "working_hour_encoded_21",
+        "weight": 0.0017735060684369477
+      },
+      {
+        "feature": "working_hour_encoded_22",
+        "weight": 0.00333816930517023
+      },
+      {
+        "feature": "working_hour_encoded_23",
+        "weight": 0.0036775016761923093
+      },
+      {
+        "feature": "working_hour_encoded_3",
+        "weight": 0.00014417292747203824
+      },
+      {
+        "feature": "working_hour_encoded_4",
+        "weight": 0.00026380411600339734
+      },
+      {
+        "feature": "working_hour_encoded_5",
+        "weight": 0.001435737784254887
+      },
+      {
+        "feature": "working_hour_encoded_6",
+        "weight": 0.00580448086445611
+      },
+      {
+        "feature": "working_hour_encoded_7",
+        "weight": 0.014432648515703755
+      },
+      {
+        "feature": "working_hour_encoded_8",
+        "weight": 0.0016874023246378368
+      },
+      {
+        "feature": "working_hour_encoded_9",
+        "weight": 0.002609901451426256
+      },
+      {
+        "feature": "working_hour_encoded_25",
+        "weight": 0.0013959205956140981
+      },
+      {
+        "feature": "working_hour_encoded_26",
+        "weight": 1.0743056887363024e-05
+      },
+      {
+        "feature": "working_hour_encoded_27",
+        "weight": 0.0002568035763296359
+      },
+      {
+        "feature": "working_hour_encoded_28",
+        "weight": 0.001049258735491897
+      },
+      {
+        "feature": "working_hour_encoded_29",
+        "weight": 0.0011493657213384847
+      },
+      {
+        "feature": "working_hour_encoded_30",
+        "weight": 0.000463013626382157
+      },
+      {
+        "feature": "working_hour_encoded_31",
+        "weight": 0.00029886719120848673
+      },
+      {
+        "feature": "working_hour_encoded_32",
+        "weight": 0.0017134014402745597
+      },
+      {
+        "feature": "working_hour_encoded_33",
+        "weight": 0.002522567005810744
+      },
+      {
+        "feature": "working_hour_encoded_34",
+        "weight": 0.001335987400253841
+      },
+      {
+        "feature": "working_hour_encoded_35",
+        "weight": 0.000993520603714892
+      },
+      {
+        "feature": "working_hour_encoded_36",
+        "weight": 0.0010275148856202186
+      },
+      {
+        "feature": "working_hour_encoded_37",
+        "weight": 0.0007587677190066667
+      },
+      {
+        "feature": "working_hour_encoded_38",
+        "weight": 0.0009334900835428959
+      },
+      {
+        "feature": "working_hour_encoded_39",
+        "weight": 0.00038741125438290064
+      },
+      {
+        "feature": "working_hour_encoded_40",
+        "weight": 0.0013700205857347767
+      },
+      {
+        "feature": "working_hour_encoded_41",
+        "weight": 0.0010265114413125942
+      },
+      {
+        "feature": "working_hour_encoded_42",
+        "weight": 0.00028561027963135003
+      },
+      {
+        "feature": "working_hour_encoded_43",
+        "weight": 0.00034981109912195945
+      },
+      {
+        "feature": "working_hour_encoded_44",
+        "weight": 0.0008036363188050261
+      },
+      {
+        "feature": "working_hour_encoded_45",
+        "weight": 0.0017470311160380002
+      },
+      {
+        "feature": "working_hour_encoded_46",
+        "weight": 0.001081797763707161
+      },
+      {
+        "feature": "working_hour_encoded_47",
+        "weight": 0.006841874854710806
+      },
+      {
+        "feature": "working_hour_encoded_24",
+        "weight": 0.00038418393176194344
+      },
+      {
+        "feature": "working_hour_encoded___unknown",
+        "weight": 0.0
+      }
+    ]
+  },
+  "interpretation": "Contemporaneous weather/calendar estimate, not a day-ahead forecast. Fitted on every complete hour of 2021-2024, selected on 2025, refit on 2021-2025 and evaluated once on 2026.",
+  "training_seconds": 184.86
 }

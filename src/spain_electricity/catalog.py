@@ -37,6 +37,11 @@ REDATA = Source(
     "https://www.ree.es/en/datos/apidata",
     "apidatos.ree.es/es/datos: demanda/demanda-tiempo-real and mercados/precios-mercados-tiempo-real",
 )
+REE_FORECAST = Source(
+    "REE · peninsular demand forecast",
+    "https://demanda.ree.es/visiona/home",
+    "demanda.ree.es/WSvisionaMovilesPeninsulaRest/resources/prevProgPeninsula, field pre",
+)
 OPEN_METEO_ARCHIVE = Source(
     "Open-Meteo · Historical Weather API",
     "https://open-meteo.com/en/docs/historical-weather-api",
@@ -57,11 +62,51 @@ PROJECT = Source(
     None,
     "spain_electricity.features, national_holidays, models and desk",
 )
-SOURCES = (REE_FEED, REDATA, OPEN_METEO_ARCHIVE, OPEN_METEO_CURRENT, MIBGAS, PROJECT)
+SOURCES = (REE_FEED, REE_FORECAST, REDATA, OPEN_METEO_ARCHIVE, OPEN_METEO_CURRENT, MIBGAS, PROJECT)
 
 WEIGHTED_CITIES = (
     "National value: the population-weighted mean of Madrid, Barcelona, Valencia, Seville and Bilbao."
 )
+
+# Saved model estimates; models.estimate_column names their columns.
+ESTIMATES = (
+    Entry(
+        "expected_demand_mw",
+        "Spark ML estimate",
+        "MW",
+        "Hourly demand estimated from contemporaneous five-city temperature and calendar.",
+        PROJECT,
+    ),
+    Entry(
+        "expected_spot_price_eur_mwh",
+        "Spark ML estimate",
+        "€/MWh",
+        "Hourly day-ahead price estimated from the gas price, renewable share, demand, hour and "
+        "Iberian-exception regime of the same hour.",
+        PROJECT,
+    ),
+    Entry(
+        "expected_renewable_share",
+        "Spark ML estimate",
+        "%",
+        "Renewable share estimated from wind at 100 m, solar radiation, demand, hour and month of the same "
+        "hour.",
+        PROJECT,
+    ),
+)
+
+
+def _through_2025(estimate: Entry) -> Entry:
+    """Describe the same estimate from the model refit on 2021-2025, shown beside the update."""
+    return Entry(
+        f"{estimate.key}_through_2025",
+        f"{estimate.label}, through 2025",
+        estimate.unit,
+        "Estimate of the model refit on 2021-2025, on the hours the update is evaluated on, so both "
+        "training periods are compared on identical hours.",
+        PROJECT,
+    )
+
 
 VARIABLES = (
     Entry(
@@ -152,6 +197,76 @@ VARIABLES = (
         "those days looks like a Sunday's.",
         PROJECT,
     ),
+    Entry(
+        "peninsular_forecast_mw",
+        "REE peninsular forecast",
+        "MW",
+        "REE's pre series forecasts the same peninsular system as demand_mw.",
+        REE_FORECAST,
+    ),
+    Entry(
+        "demand_mw_24h_ago",
+        "Same hour yesterday",
+        "MW",
+        "Demand exactly 24 elapsed UTC hours earlier: the naive forecast the demand model must beat. Null "
+        "across gaps and on the day after the excluded blackout.",
+        PROJECT,
+    ),
+    Entry(
+        "spot_price_eur_mwh_24h_ago",
+        "Same hour yesterday",
+        "€/MWh",
+        "Day-ahead price exactly 24 elapsed UTC hours earlier: the price model's persistence baseline. "
+        "Null across gaps.",
+        PROJECT,
+    ),
+    Entry(
+        "renewable_share_24h_ago",
+        "Same hour yesterday",
+        "%",
+        "Renewable share exactly 24 elapsed UTC hours earlier: the renewable-share model's persistence "
+        "baseline. Null across gaps.",
+        PROJECT,
+    ),
+    *ESTIMATES,
+    *(_through_2025(estimate) for estimate in ESTIMATES),
+    Entry(
+        "renewable_mw",
+        "Renewable output",
+        "MW",
+        "Wind, PV, solar thermal and hydro output inferred from the stream's renewable share times demand.",
+        PROJECT,
+    ),
+    Entry(
+        "residual_demand_mw",
+        "Residual demand",
+        "MW",
+        "Demand minus wind, PV, solar thermal and hydro; it is not a measure of unmet demand.",
+        PROJECT,
+    ),
+    Entry(
+        "combined_cycle_share",
+        "Combined cycle / load",
+        "%",
+        "Combined-cycle output divided by demand; this excludes other technologies that may also burn gas.",
+        PROJECT,
+    ),
+    Entry(
+        "fuel_cost_eur_mwh",
+        "Fuel cost equivalent",
+        "€/MWh electric",
+        "Daily MIBGAS gas price divided by user-selected conversion efficiency on the same energy basis. "
+        "Scenario only; CO₂ and nonfuel costs are excluded.",
+        PROJECT,
+    ),
+    Entry(
+        "fuel_spread_eur_mwh",
+        "Fuel-only spread",
+        "€/MWh electric",
+        "Hourly spot delivery price minus the fuel cost scenario. "
+        "It is not net profit or a clean spark spread.",
+        PROJECT,
+    ),
 )
 
 # Color slot order of the mix chart: adjacent slots are the validated color pairs.
@@ -220,71 +335,6 @@ TECHNOLOGIES = (
     ),
 )
 
-REE_FORECAST = Source(
-    "REE · peninsular demand forecast",
-    "https://demanda.ree.es/visiona/home",
-    "demanda.ree.es/WSvisionaMovilesPeninsulaRest/resources/prevProgPeninsula, field pre",
-)
-SOURCES = (*SOURCES, REE_FORECAST)
-VARIABLES = (
-    *VARIABLES,
-    Entry(
-        "peninsular_forecast_mw",
-        "REE peninsular forecast",
-        "MW",
-        "REE's pre series forecasts the same peninsular system as demand_mw.",
-        REE_FORECAST,
-    ),
-    Entry(
-        "expected_demand_mw",
-        "Spark ML estimate",
-        "MW",
-        "Hourly demand estimated from contemporaneous five-city temperature and calendar.",
-        PROJECT,
-    ),
-)
-
-VARIABLES = (
-    *VARIABLES,
-    Entry(
-        "renewable_mw",
-        "Renewable output",
-        "MW",
-        "Wind, PV, solar thermal and hydro output inferred from the stream's renewable share times demand.",
-        PROJECT,
-    ),
-    Entry(
-        "residual_demand_mw",
-        "Residual demand",
-        "MW",
-        "Demand minus wind, PV, solar thermal and hydro; it is not a measure of unmet demand.",
-        PROJECT,
-    ),
-    Entry(
-        "combined_cycle_share",
-        "Combined cycle / load",
-        "%",
-        "Combined-cycle output divided by demand; this excludes other technologies that may also burn gas.",
-        PROJECT,
-    ),
-    Entry(
-        "fuel_cost_eur_mwh",
-        "Fuel cost equivalent",
-        "€/MWh electric",
-        "Daily MIBGAS gas price divided by user-selected conversion efficiency on the same energy basis. "
-        "Scenario only; CO₂ and nonfuel costs are excluded.",
-        PROJECT,
-    ),
-    Entry(
-        "fuel_spread_eur_mwh",
-        "Fuel-only spread",
-        "€/MWh electric",
-        "Hourly spot delivery price minus the fuel cost scenario. "
-        "It is not net profit or a clean spark spread.",
-        PROJECT,
-    ),
-)
-
 DATASETS = {
     "peninsular_forecast": ("REE's peninsular demand forecast, every 5 minutes", REE_FORECAST),
     "generation": ("Demand and generation mix, every 5 minutes", REE_FEED),
@@ -321,7 +371,17 @@ ATTRIBUTES = {
         "True when a complete hour exceeds the validation-calibrated absolute error threshold.",
     ),
     "prediction_status": ("", "missing_weather, provisional (fewer than 12 readings), or complete."),
-    "split": ("", "Chronological evaluation split: validation (2025) or test (2026)."),
+    "split": (
+        "",
+        "Chronological evaluation split: validation (2025), test (2026), or update (the hours from the "
+        "update's cutoff, 1 November 2026, scored by the model refit through October 2026).",
+    ),
+    "is_anomaly": ("", "True on the documented 28 April 2025 blackout date; excluded from model fitting."),
+    "iberian_exception": (
+        "",
+        "Legal Iberian adjustment period: 15 June 2022 to 31 December 2023. "
+        "Not an indicator of daily activation.",
+    ),
     "ts_utc": ("", "Time of the reading, in UTC."),
     "hour_utc": ("", "Start of the hour, in UTC."),
     "local_date": ("", "Date in Spanish local time (Europe/Madrid)."),

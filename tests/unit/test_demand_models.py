@@ -1,3 +1,4 @@
+import json
 from datetime import date, datetime
 
 import pytest
@@ -68,3 +69,64 @@ def test_real_forecast_fixture_keeps_scheduled_demand(spark, fixtures_dir):
     rows = ree_forecast.read_raw(spark, fixtures_dir / "ree_forecast").collect()
     assert rows
     assert any(row.peninsular_scheduled_mw is not None for row in rows)
+
+
+def test_naive_baseline_is_the_same_hour_the_day_before(spark):
+    df = spark.createDataFrame(
+        [
+            (datetime(2025, 1, 1, 10), 100.0),
+            (datetime(2025, 1, 2, 10), 200.0),
+            (datetime(2025, 1, 2, 11), 300.0),
+        ],
+        "hour_utc timestamp, demand_mw double",
+    )
+    rows = models.add_naive_baseline(df).orderBy("hour_utc").collect()
+    assert [row[models.NAIVE] for row in rows] == [None, 100.0, None]
+
+
+def test_candidate_grid_loops_param_grids_for_three_families():
+    grid = models.candidate_grid()
+    assert [kind for kind, _, _ in grid] == ["linear", "random_forest", "gbt"]
+    assert [len(param_maps) for _, _, param_maps in grid] == [6, 2, 4]
+    for _, pipeline, param_maps in grid:
+        estimator = pipeline.getStages()[-1]
+        assert all(param.parent == estimator.uid for params in param_maps for param in params)
+
+
+def test_paired_rows_can_require_every_baseline(spark):
+    df = spark.createDataFrame(
+        [(1.0, 2.0), (1.0, None), (None, 2.0)], f"{models.BASELINE} double, {models.NAIVE} double"
+    )
+    assert models.paired_rows(df, (models.BASELINE, models.NAIVE)).count() == 1
+    assert models.paired_rows(df).count() == 2
+
+
+def test_update_split_trains_before_the_cutoff_and_evaluates_from_it(spark):
+    frame = spark.createDataFrame(
+        [(date(2025, 12, 31),), (date(2026, 10, 31),), (date(2026, 11, 1),), (date(2026, 11, 23),)],
+        "local_date date",
+    )
+    training, evaluation = models.update_split(frame, date(2026, 11, 1))
+    assert sorted(row.local_date for row in training.collect()) == [date(2025, 12, 31), date(2026, 10, 31)]
+    assert sorted(row.local_date for row in evaluation.collect()) == [date(2026, 11, 1), date(2026, 11, 23)]
+
+
+def test_saved_estimates_are_named_after_their_target():
+    assert models.estimate_column(models.TARGET) == "expected_demand_mw"
+    previous = models.estimate_column("spot_price_eur_mwh", previous=True)
+    assert previous == "expected_spot_price_eur_mwh_through_2025"
+
+
+def test_a_sample_manifest_left_behind_does_not_label_the_full_history(spark, paths):
+    paths.root.mkdir(parents=True, exist_ok=True)
+    manifest = {"requested_days": ["2025-01-08"], "days_by_year": {"2025": 1}}
+    (paths.root / "demand_sample.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    def hourly(*days):
+        return spark.createDataFrame([(day,) for day in days], "local_date date")
+
+    # REE's 30-hour window spills into the neighbouring days of each requested day.
+    assert sampling.sampled_history(paths, hourly(date(2025, 1, 7), date(2025, 1, 8), date(2025, 1, 9)))
+    assert sampling.sampled_history(paths, hourly(date(2025, 1, 8), date(2025, 3, 1))) is None
+    (paths.root / "demand_sample.json").unlink()
+    assert sampling.sampled_history(paths, hourly(date(2025, 1, 8))) is None

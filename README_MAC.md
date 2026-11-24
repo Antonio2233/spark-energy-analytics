@@ -41,7 +41,7 @@ Python-management reference: [uv Python installation](https://docs.astral.sh/uv/
 
 ## 4. Prepare historical and market data
 
-The trained demand model and its evaluation results are included; raw and processed data are not. Prepare a compact dataset before using History or the historical desk:
+The trained models and their evaluation results are included; raw and processed data are not. Prepare a compact dataset before using History or the historical desk:
 
 ```bash
 uv run --locked python scripts/prepare_demand.py
@@ -96,4 +96,17 @@ uv run --locked ruff check .
 uv run --locked ruff format --check .
 ```
 
-The commands match the repository configuration and the official installation references above. Native macOS execution has not been tested from the current Windows/WSL workstation.
+These steps were run natively on macOS 26 (Apple silicon) with Homebrew's OpenJDK 21 on 24 November 2026: the test suite, full-history model training and the dashboard.
+
+
+## Optional: retrain the models
+
+The trained models are included in `data/models/`. To retrain them on the full 2021–2026 history, with the same Java environment:
+
+```bash
+uv run --locked python scripts/download_history.py --start 2021-01-01 --end <yesterday>
+uv run --locked python scripts/ingest.py
+uv run --locked python scripts/train_models.py
+```
+
+The download is long: REE's peninsular forecast alone took 44 minutes (2,176 daily files). Training uses 6 GB of Spark driver memory by default; set `SPAIN_ELECTRICITY_DRIVER_MEMORY` (for example `8g`) to change it. The results appear in **Models**. See [the demand model](docs/02-demand-model.md) and [the Phase 2 models](docs/04-phase-2-models.md).

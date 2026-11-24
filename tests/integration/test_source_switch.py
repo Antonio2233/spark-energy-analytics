@@ -38,11 +38,11 @@ def test_one_click_switches_source_and_switches_back_without_mixing(spark, paths
     app = AppTest.from_file(str(REPO_ROOT / "app/streamlit_app.py"), default_timeout=180).run()
     assert not app.exception
     assert {metric.label: metric.value for metric in app.metric}["DEMAND"] == "30.00 GW"
-    app.radio[0].set_value("Real time").run()
+    app.radio(key="desk_source").set_value("Real time").run()
     assert not app.exception
     assert {metric.label: metric.value for metric in app.metric}["DEMAND"] == "40.00 GW"
     assert True in requests
-    app.radio[0].set_value("Historical").run()
+    app.radio(key="desk_source").set_value("Historical").run()
     assert not app.exception
     assert {metric.label: metric.value for metric in app.metric}["DEMAND"] == "30.00 GW"
     assert requests[-1] is False

@@ -6,7 +6,7 @@ Final project for the Big Data course (UMA Master's). We combine Red Eléctrica'
 
 - [macOS setup and launch](README_MAC.md): native Mac installation, compact data/model preparation, one-click source selection and troubleshooting.
 - [How phase 1 works](docs/01-how-it-works.md): what every script does, the datasets it writes, the streaming job and the UI tabs.
-- [Demand model and hourly monitoring](docs/02-demand-model.md): bounded seasonal sample, fast training, measured results and streaming estimates.
+- [Demand model and hourly monitoring](docs/02-demand-model.md): full-history training against two baselines, measured results and streaming estimates.
 - [Energy Desk](docs/03-energy-desk.md): live-first market dashboard, source alignment, bounded market preparation and real-time/replay behavior.
 - [Project plan](docs/plan.md): questions, sources, models, streaming and schedule by iteration.
 - [Phase 1 implementation plan](docs/superpowers/plans/2026-11-10-phase-1-data.md): data ingestion, first stream and UI.
@@ -63,9 +63,9 @@ The repository includes the trained model and its evaluation results, but not ra
 
 The UI now opens on **Live**, an Energy Desk with demand, generation mix, electricity/gas references, weather, model estimates and alerts. Use **Data source → Historical / Replay / Real time** to choose downloaded history or start current capture automatically. Its mode badge and event timestamp distinguish the views.
 
-### Small demand-model demonstration
+### Quick demonstration on a seasonal sample
 
-Prepare the compact history and market references on a fresh checkout. The saved model is already included; training is optional.
+The trained models are already in Git, so a fresh checkout only needs data to show. This prepares a compact sample instead of the full history; retraining is optional and only reflects the sampled dates.
 
 ```bash
 uv run python scripts/prepare_demand.py
@@ -74,7 +74,7 @@ uv run python scripts/prepare_desk_market.py --month 2026-10 --forecast-day 2026
 uv run streamlit run app/streamlit_app.py
 ```
 
-This downloads a bounded sample of 96 days (248 files, about 16 MB on the first run), builds hourly features and compares small linear and Random Forest pipelines. The first training/evaluation run took 43.1 seconds. **Models** shows actual coverage, candidate validation scores, paired REE metrics and the worst errors. Results cover sampled dates, not complete years. Price models and KMeans remain future work. Kafka is out of scope.
+This downloads a bounded sample of 96 days (248 files, about 16 MB on the first run) and builds hourly features. **Models** shows the saved full-history results: candidate validation scores, metrics against the baselines and the worst errors. Price models and KMeans are described in the Phase 2 section below. Kafka is out of scope.
 
 After training, restart `run_stream.py` to enable a third query with hourly demand estimates and validation-calibrated alerts in **Live**. Live mode uses captured weather; replay uses historical weather. Missing weather and incomplete hours never trigger alerts. See the [demand extension](docs/02-demand-model.md) for the measured accuracy and limitations.
 
@@ -96,7 +96,9 @@ uv run python scripts/download_history.py --start 2021-01-01 --end 2026-11-09
 uv run python scripts/ingest.py
 ```
 
-The default sources now also include the peninsular forecast, adding roughly 2,140 daily requests for 2021?2026. On 2026-11-10 the earlier source set was 2,642 files (about 490 MB): the download took 1 h 14 min with no failures, and the ingest 31 s.
+The default sources now also include the peninsular forecast, adding roughly 2,140 daily requests for 2021–2026. On 2026-11-10 the earlier source set was 2,642 files (about 490 MB): the download took 1 h 14 min with no failures, and the ingest 31 s. On 2026-11-24 the forecast added 2,176 files, downloaded in 44 min with no failures.
+
+Local Spark sessions get a 6 GB driver heap by default, because full-history training ran out of Spark's own 1 GB. Change it with `SPAIN_ELECTRICITY_DRIVER_MEMORY` (for example `SPAIN_ELECTRICITY_DRIVER_MEMORY=4g`); it applies when a process starts its Spark session.
 
 ### 2. Streaming
 
@@ -134,7 +136,7 @@ Opens at <http://localhost:8501>, with five tabs. All times are UTC. Chart descr
 - **History:** actual demand vs REE's forecast (both from REData, so they measure the same demand), the generation mix (one line per technology), and day-ahead price vs PVPC.
 - **Live:** the streamed 5-minute demand and the 15-minute windows. It shows today's data only while `capture_realtime.py` and `run_stream.py` are running; otherwise it shows the last replayed or captured readings, with a notice saying from which day and how to go live. Refreshes every 30 seconds, and warns in live mode when no new reading arrives for 20 minutes.
 - **Analysis:** daily demand against temperature (working days apart from weekends and holidays), and the correlation between hourly variables with its value on every cell.
-- **Models:** seasonal sample coverage, validation candidates, demand model vs peninsular REE forecast, held-out predictions and worst residuals. Live also shows hourly model estimates when the model-enabled stream is running.
+- **Models:** demand, price and renewable share, each with its validation candidates, its scores against its baselines (REE's peninsular forecast and the same hour the day before), one month of held-out predictions, the largest errors and the feature weights; then the KMeans day types, named by inference. A **Model version** selector switches between the model refit on 2021–2025 (tested on 2026) and the update refit through October 2026 (tested on November 2026). Live also shows hourly model estimates when the model-enabled stream is running.
 
 ### Demo in three terminals
 
@@ -164,3 +166,14 @@ uv run pytest -m integration         # end-to-end Spark, streaming and UI tests
 - `notebooks/`: thin analysis notebooks over the package.
 - `docs/`: plan and documentation.
 - `data/`: only trained models are shared; raw and processed data, local tools and streaming state are ignored.
+
+
+## Phase 2 models
+
+The Models tab includes the demand, price and renewable-share regressions, feature weights and KMeans day types, all trained on the full 2021–2026 history and saved in Git. Each regression also has an update, refit through October 2026 and tested on November 2026; the tab's **Model version** selector switches between both. To retrain them after downloading and ingesting the full history:
+
+```bash
+uv run python scripts/train_models.py            # all four models; --models selects some
+```
+
+On 2026-11-24 the four models took about 7 minutes on 12 cores: demand 160 s, price 154 s and renewable share 99 s, each including its update through October 2026. For a quick experiment on the seasonal sample instead, run `scripts/prepare_phase2.py` after `prepare_demand.py`; it requests only the 24 price months and six annual gas references the sample needs. See [demand model](docs/02-demand-model.md) and [Phase 2 models](docs/04-phase-2-models.md) for features, temporal evaluation, measured results, units, DST handling, limitations and `notebooks/02_models.ipynb`.

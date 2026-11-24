@@ -2,12 +2,18 @@
 
 import os
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 LOCAL_TIMEZONE = "Europe/Madrid"
 ANOMALY_DATES = ("2025-04-28",)
+IBERIAN_EXCEPTION = (date(2022, 6, 15), date(2023, 12, 31))
 GAS_PRODUCT = "GDAES_D+1"
 DATA_DIR_ENV = "SPAIN_ELECTRICITY_DATA_DIR"
+DRIVER_MEMORY_ENV = "SPAIN_ELECTRICITY_DRIVER_MEMORY"
+# Heap of a local Spark driver: full-history demand training ran out of Spark's default 1 GB, and 6 GB
+# was enough (measured on 2026-11-24 with 12 cores).
+DEFAULT_DRIVER_MEMORY = "6g"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 

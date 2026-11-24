@@ -1,0 +1,464 @@
+{
+  "label": "spot_price_eur_mwh",
+  "unit": "EUR/MWh",
+  "baselines": {
+    "same_hour_yesterday": "spot_price_eur_mwh_24h_ago"
+  },
+  "selected": {
+    "model": "gbt",
+    "parameters": {
+      "maxIter": 120,
+      "maxDepth": 6
+    }
+  },
+  "candidates": [
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 0.1,
+        "elasticNetParam": 0.0
+      },
+      "mae": 21.254972566098413,
+      "rmse": 26.143850382121883,
+      "r2": 0.6978500404119596,
+      "bias": -4.927582668461036
+    },
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 0.1,
+        "elasticNetParam": 0.5
+      },
+      "mae": 21.265267524519036,
+      "rmse": 26.161985277789476,
+      "r2": 0.6974307174470245,
+      "bias": -4.970570946054978
+    },
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 1.0,
+        "elasticNetParam": 0.0
+      },
+      "mae": 21.51169858290691,
+      "rmse": 26.646092855471633,
+      "r2": 0.686129488204276,
+      "bias": -6.937147329205099
+    },
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 1.0,
+        "elasticNetParam": 0.5
+      },
+      "mae": 21.686334022299473,
+      "rmse": 26.972996651229387,
+      "r2": 0.6783808953812949,
+      "bias": -7.473722360769725
+    },
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 10.0,
+        "elasticNetParam": 0.0
+      },
+      "mae": 24.877928027503074,
+      "rmse": 31.4601242833212,
+      "r2": 0.5624735532453939,
+      "bias": -16.461898445744158
+    },
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 10.0,
+        "elasticNetParam": 0.5
+      },
+      "mae": 28.45563807173682,
+      "rmse": 36.09664950817514,
+      "r2": 0.4240069718821169,
+      "bias": -19.94319393910725
+    },
+    {
+      "model": "random_forest",
+      "parameters": {
+        "numTrees": 60,
+        "maxDepth": 8
+      },
+      "mae": 23.959148024996715,
+      "rmse": 28.832294917846983,
+      "r2": 0.6325130977668914,
+      "bias": -2.4951304994697345
+    },
+    {
+      "model": "random_forest",
+      "parameters": {
+        "numTrees": 60,
+        "maxDepth": 12
+      },
+      "mae": 21.825401774449233,
+      "rmse": 27.15324049337327,
+      "r2": 0.6740681709010805,
+      "bias": -2.567016915696185
+    },
+    {
+      "model": "gbt",
+      "parameters": {
+        "maxIter": 60,
+        "maxDepth": 4
+      },
+      "mae": 21.441154897031776,
+      "rmse": 27.03789287794079,
+      "r2": 0.6768314216507576,
+      "bias": -1.8500941384470613
+    },
+    {
+      "model": "gbt",
+      "parameters": {
+        "maxIter": 60,
+        "maxDepth": 6
+      },
+      "mae": 21.301966223200616,
+      "rmse": 27.196796064763863,
+      "r2": 0.6730217003829241,
+      "bias": -1.8533196636498692
+    },
+    {
+      "model": "gbt",
+      "parameters": {
+        "maxIter": 120,
+        "maxDepth": 4
+      },
+      "mae": 21.089228124063347,
+      "rmse": 26.57115469292349,
+      "r2": 0.6878924337195149,
+      "bias": -2.4625378248720615
+    },
+    {
+      "model": "gbt",
+      "parameters": {
+        "maxIter": 120,
+        "maxDepth": 6
+      },
+      "mae": 20.845479013093154,
+      "rmse": 26.818751833595606,
+      "r2": 0.6820487294835594,
+      "bias": -2.428672652219449
+    }
+  ],
+  "evaluation": {
+    "validation": {
+      "model": {
+        "mae": 20.845479013093154,
+        "rmse": 26.818751833595606,
+        "r2": 0.6820487294835594,
+        "bias": -2.428672652219449
+      },
+      "same_hour_yesterday": {
+        "mae": 19.94280475206612,
+        "rmse": 28.871842904826135,
+        "r2": 0.6315042752187524,
+        "bias": -0.09051365932047753
+      },
+      "hours": 8712
+    },
+    "test": {
+      "model": {
+        "mae": 34.621527238735595,
+        "rmse": 45.072945941931465,
+        "r2": 0.6636432434682652,
+        "bias": -17.207304752236737
+      },
+      "same_hour_yesterday": {
+        "mae": 22.66428102701325,
+        "rmse": 36.83599443713217,
+        "r2": 0.7753465642425518,
+        "bias": 0.32838079765545347
+      },
+      "hours": 7848
+    }
+  },
+  "features": [
+    {
+      "feature": "gas_price_eur_mwh",
+      "weight": 0.4840636520539851
+    },
+    {
+      "feature": "renewable_share",
+      "weight": 0.22664972047809562
+    },
+    {
+      "feature": "demand_mw",
+      "weight": 0.13010684270981204
+    },
+    {
+      "feature": "iberian_exception_number",
+      "weight": 0.015938348357431617
+    },
+    {
+      "feature": "gas_price_eur_mwh_x_iberian_exception",
+      "weight": 0.07358974905722625
+    },
+    {
+      "feature": "local_hour_encoded_0",
+      "weight": 0.0022151473376634387
+    },
+    {
+      "feature": "local_hour_encoded_1",
+      "weight": 0.0018177352131661763
+    },
+    {
+      "feature": "local_hour_encoded_10",
+      "weight": 0.0011122321883445352
+    },
+    {
+      "feature": "local_hour_encoded_11",
+      "weight": 0.0014281196319943603
+    },
+    {
+      "feature": "local_hour_encoded_12",
+      "weight": 0.0013662032743284262
+    },
+    {
+      "feature": "local_hour_encoded_13",
+      "weight": 0.0028166570097362467
+    },
+    {
+      "feature": "local_hour_encoded_14",
+      "weight": 0.003079233806223977
+    },
+    {
+      "feature": "local_hour_encoded_15",
+      "weight": 0.0029423116503880424
+    },
+    {
+      "feature": "local_hour_encoded_16",
+      "weight": 0.001937238947473899
+    },
+    {
+      "feature": "local_hour_encoded_17",
+      "weight": 0.0005526280023860212
+    },
+    {
+      "feature": "local_hour_encoded_18",
+      "weight": 0.0024524056483068717
+    },
+    {
+      "feature": "local_hour_encoded_19",
+      "weight": 0.008842334450182688
+    },
+    {
+      "feature": "local_hour_encoded_2",
+      "weight": 0.0007512777406972226
+    },
+    {
+      "feature": "local_hour_encoded_20",
+      "weight": 0.011589646347567054
+    },
+    {
+      "feature": "local_hour_encoded_21",
+      "weight": 0.00874396375461423
+    },
+    {
+      "feature": "local_hour_encoded_22",
+      "weight": 0.0037550528656298105
+    },
+    {
+      "feature": "local_hour_encoded_23",
+      "weight": 0.0026677817309044474
+    },
+    {
+      "feature": "local_hour_encoded_3",
+      "weight": 0.0011664375097708317
+    },
+    {
+      "feature": "local_hour_encoded_4",
+      "weight": 0.0012264271686268473
+    },
+    {
+      "feature": "local_hour_encoded_5",
+      "weight": 0.0008412761062760182
+    },
+    {
+      "feature": "local_hour_encoded_6",
+      "weight": 0.0019105608303662848
+    },
+    {
+      "feature": "local_hour_encoded_7",
+      "weight": 0.0023111012432963066
+    },
+    {
+      "feature": "local_hour_encoded_8",
+      "weight": 0.0026528473688446014
+    },
+    {
+      "feature": "local_hour_encoded_9",
+      "weight": 0.0014730675166611275
+    },
+    {
+      "feature": "local_hour_encoded___unknown",
+      "weight": 0.0
+    }
+  ],
+  "split_hours": {
+    "train": 35040,
+    "validation": 8712,
+    "test": 7848
+  },
+  "refit": {
+    "years": "2021-2025",
+    "hours": 43776
+  },
+  "update": {
+    "train_until": "2026-10-31",
+    "training_hours": 51072,
+    "evaluated_from": "2026-11-01",
+    "evaluated_until": "2026-11-23",
+    "evaluation": {
+      "model": {
+        "mae": 37.86216017982002,
+        "rmse": 50.888733688675956,
+        "r2": 0.6558410762879341,
+        "bias": -3.0163970487614766
+      },
+      "model_through_2025": {
+        "mae": 44.24826739196647,
+        "rmse": 59.911609496453195,
+        "r2": 0.5229787561844494,
+        "bias": -18.122016650556485
+      },
+      "same_hour_yesterday": {
+        "mae": 52.32975996376812,
+        "rmse": 72.60379055531779,
+        "r2": 0.299457742870173,
+        "bias": -0.16417119565217345
+      },
+      "hours": 552
+    },
+    "features": [
+      {
+        "feature": "gas_price_eur_mwh",
+        "weight": 0.45873691099782216
+      },
+      {
+        "feature": "renewable_share",
+        "weight": 0.2576390396352645
+      },
+      {
+        "feature": "demand_mw",
+        "weight": 0.1444461070021562
+      },
+      {
+        "feature": "iberian_exception_number",
+        "weight": 0.018287090846017335
+      },
+      {
+        "feature": "gas_price_eur_mwh_x_iberian_exception",
+        "weight": 0.056453243381441344
+      },
+      {
+        "feature": "local_hour_encoded_0",
+        "weight": 0.002666812931854571
+      },
+      {
+        "feature": "local_hour_encoded_1",
+        "weight": 0.001215305340618694
+      },
+      {
+        "feature": "local_hour_encoded_10",
+        "weight": 0.0014689565609160686
+      },
+      {
+        "feature": "local_hour_encoded_11",
+        "weight": 0.0009839819950396558
+      },
+      {
+        "feature": "local_hour_encoded_12",
+        "weight": 0.0007779243261625255
+      },
+      {
+        "feature": "local_hour_encoded_13",
+        "weight": 0.0020424642538170476
+      },
+      {
+        "feature": "local_hour_encoded_14",
+        "weight": 0.002391886132235927
+      },
+      {
+        "feature": "local_hour_encoded_15",
+        "weight": 0.0025797480642924596
+      },
+      {
+        "feature": "local_hour_encoded_16",
+        "weight": 0.001158907396403733
+      },
+      {
+        "feature": "local_hour_encoded_17",
+        "weight": 0.0008391344470411383
+      },
+      {
+        "feature": "local_hour_encoded_18",
+        "weight": 0.004044500619129396
+      },
+      {
+        "feature": "local_hour_encoded_19",
+        "weight": 0.008684319989355828
+      },
+      {
+        "feature": "local_hour_encoded_2",
+        "weight": 0.0007498971656804855
+      },
+      {
+        "feature": "local_hour_encoded_20",
+        "weight": 0.010345367673253725
+      },
+      {
+        "feature": "local_hour_encoded_21",
+        "weight": 0.00615486962119835
+      },
+      {
+        "feature": "local_hour_encoded_22",
+        "weight": 0.0034287409397529916
+      },
+      {
+        "feature": "local_hour_encoded_23",
+        "weight": 0.002995970255142279
+      },
+      {
+        "feature": "local_hour_encoded_3",
+        "weight": 0.0010239751237890568
+      },
+      {
+        "feature": "local_hour_encoded_4",
+        "weight": 0.0010810727588371326
+      },
+      {
+        "feature": "local_hour_encoded_5",
+        "weight": 0.0006972747278082287
+      },
+      {
+        "feature": "local_hour_encoded_6",
+        "weight": 0.002290430819187319
+      },
+      {
+        "feature": "local_hour_encoded_7",
+        "weight": 0.002161038791818404
+      },
+      {
+        "feature": "local_hour_encoded_8",
+        "weight": 0.0029857155401331863
+      },
+      {
+        "feature": "local_hour_encoded_9",
+        "weight": 0.0016693126638302363
+      },
+      {
+        "feature": "local_hour_encoded___unknown",
+        "weight": 0.0
+      }
+    ]
+  },
+  "weight_kind": "tree importance",
+  "trained_at": "2026-11-24T22:20:41.665640+00:00",
+  "training_seconds": 154.16,
+  "interpretation": "Contemporaneous explanatory estimate, not a day-ahead forecast. Baseline is exact UTC t-24h persistence. Selected on 2025, refit on 2021-2025 and evaluated once on 2026."
+}
