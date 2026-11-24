@@ -97,6 +97,16 @@ def test_line_chart_formats_time_and_values():
     assert encoding["y"]["axis"]["format"] == ",.0f"
 
 
+def test_line_chart_legend_never_truncates_series_names():
+    names = ["Spark ML estimate, through October 2026", "Spark ML estimate, through 2025"]
+    data = pd.DataFrame({"hour_utc": pd.to_datetime(["2026-11-01"] * 2), "mw": [1.0, 2.0], "series": names})
+    spec = charts.line_chart(
+        data, x="hour_utc", y="mw", title="Demand", y_title="MW", domain=names, theme=charts.LIGHT
+    ).to_dict()
+    # Vega-Lite's default limit cut both names to the same visible prefix.
+    assert _layer(spec, "line")["encoding"]["color"]["legend"]["labelLimit"] == 0
+
+
 def test_scatter_groups_holidays_with_weekends():
     daily = pd.DataFrame(
         {
@@ -159,3 +169,15 @@ def test_day_profiles_chart_preserves_hours_and_group_labels():
     assert {row["day_type"] for row in rows} == {"0", "1"}
     assert spec["encoding"]["color"]["legend"] is not None
     assert spec["encoding"]["color"]["field"] == "day_type"
+
+
+def test_day_profiles_chart_shows_the_inferred_name_of_each_type():
+    summary = pd.DataFrame(
+        {
+            "day_type": [0, 2],
+            "name": ["Warm working day", "Weekend or holiday"],
+            "mean_profile": [[1.0] * 24, [0.5] * 12 + [1.5] * 12],
+        }
+    )
+    rows = next(iter(charts.profiles_chart(summary, charts.LIGHT).to_dict()["datasets"].values()))
+    assert {row["day_type"] for row in rows} == {"Warm working day", "Weekend or holiday"}

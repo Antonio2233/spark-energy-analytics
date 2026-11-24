@@ -12,7 +12,7 @@ import pandas as pd
 import streamlit as st
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.stat import Correlation
-from pyspark.sql import SparkSession
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
 from spain_electricity.capture import REE_LANDING
@@ -210,38 +210,48 @@ def live_predictions(spark: SparkSession, paths: DataPaths) -> pd.DataFrame:
     return _latest_stream_rows(spark, str(path.resolve()), versions, "hour_utc", ()).head(48)
 
 
-def model_predictions(spark: SparkSession, paths: DataPaths, split: str) -> pd.DataFrame:
-    """Return a bounded evaluation sample for charts, never the unaggregated raw history."""
-    path = paths.models / "demand" / "predictions"
-    if not has_parquet(path):
+def _saved_split(spark: SparkSession, folder: Path, split: str) -> DataFrame:
+    """Read one split of a model's saved evaluation predictions."""
+    return spark.read.parquet(str(folder)).where(F.col("split") == split)
+
+
+def prediction_months(spark: SparkSession, folder: Path, split: str) -> list[str]:
+    """List the local months (YYYY-MM) of one split of saved predictions, oldest first."""
+    if not has_parquet(folder):
+        return []
+    months = (
+        _saved_split(spark, folder, split)
+        .select(F.date_format("local_date", "yyyy-MM").alias("month"))
+        .distinct()
+        .orderBy("month")
+        .collect()
+    )
+    return [row.month for row in months]
+
+
+def saved_predictions(spark: SparkSession, folder: Path, split: str, month: str) -> pd.DataFrame:
+    """Return one local month of one split of saved predictions (at most 744 hours), ordered by hour."""
+    if not has_parquet(folder):
         return pd.DataFrame()
     return (
-        spark.read.parquet(str(path))
-        .where(F.col("split") == split)
-        .orderBy(F.desc("hour_utc"))
-        .limit(2000)
+        _saved_split(spark, folder, split)
+        .where(F.date_format("local_date", "yyyy-MM") == month)
+        .orderBy("hour_utc")
         .toPandas()
-        .sort_values("hour_utc")
     )
 
 
-def worst_model_errors(spark: SparkSession, paths: DataPaths, split: str) -> pd.DataFrame:
-    """Select the ten largest evaluation residuals in Spark before displaying them."""
+def largest_errors(
+    spark: SparkSession, folder: Path, label: str, estimate: str, split: str, limit: int = 10
+) -> pd.DataFrame:
+    """Select in Spark the hours with the largest absolute error (actual minus estimate) of one split."""
+    error = (F.col(label) - F.col(estimate)).alias("error")
+    saved = _saved_split(spark, folder, split)
+    rest = [column for column in saved.columns if column not in {"hour_utc", label, estimate, "split"}]
     return (
-        spark.read.parquet(str(paths.models / "demand" / "predictions"))
-        .where(F.col("split") == split)
-        .orderBy(F.abs("demand_error_mw").desc())
-        .select(
-            "hour_utc",
-            "demand_mw",
-            "expected_demand_mw",
-            "peninsular_forecast_mw",
-            "demand_error_mw",
-            "temperature_c",
-            "is_holiday",
-            "is_weekend",
-        )
-        .limit(10)
+        saved.select("hour_utc", label, estimate, error, *rest)
+        .orderBy(F.abs("error").desc())
+        .limit(limit)
         .toPandas()
     )
 

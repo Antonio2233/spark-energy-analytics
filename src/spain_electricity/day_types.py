@@ -3,7 +3,8 @@
 import json
 import math
 
-from pyspark.ml.clustering import KMeans, KMeansModel
+from pyspark.ml import Pipeline, PipelineModel
+from pyspark.ml.clustering import KMeans
 from pyspark.ml.evaluation import ClusteringEvaluator
 from pyspark.ml.functions import array_to_vector, vector_to_array
 from pyspark.sql import DataFrame, SparkSession
@@ -11,6 +12,10 @@ from pyspark.sql import functions as F
 
 from spain_electricity.config import LOCAL_TIMEZONE, DataPaths
 from spain_electricity.features import add_flags
+from spain_electricity.models import SPLITS
+
+# A group whose days are mostly weekends or national holidays is named a day off.
+DAYS_OFF_SHARE = 0.5
 
 
 def daily_profiles(hourly: DataFrame) -> DataFrame:
@@ -60,16 +65,15 @@ def daily_profiles(hourly: DataFrame) -> DataFrame:
 
 def fit_day_types(
     profiles: DataFrame, k_values: tuple[int, ...] = (3, 4, 5, 6, 7, 8), seed: int = 42
-) -> tuple[KMeansModel, dict]:
+) -> tuple[PipelineModel, dict]:
     """Select k by training-profile silhouette, skipping impossible or degenerate partitions."""
     n = profiles.count()
     scores, best, best_score = {}, None, float("-inf")
     for k in k_values:
         if not 2 <= k < n:
             continue
-        model = KMeans(k=k, seed=seed, featuresCol="profile", predictionCol="day_type", maxIter=30).fit(
-            profiles
-        )
+        kmeans = KMeans(k=k, seed=seed, featuresCol="profile", predictionCol="day_type", maxIter=30)
+        model = Pipeline(stages=[kmeans]).fit(profiles)
         assignments = model.transform(profiles)
         clusters = assignments.select("day_type").distinct().count()
         if not 2 <= clusters < n:
@@ -105,42 +109,75 @@ def describe(assignments: DataFrame, hourly: DataFrame) -> DataFrame:
     )
 
 
+def name_day_types(summary: list[dict]) -> dict[int, str]:
+    """Name each group from its share of days off and its mean temperature: an inference, not a label.
+
+    KMeans only sees the normalized shape. Groups that are mostly weekends or holidays are days off; the
+    others are working days. Within each kind, the warmest group is "Warm" and the coolest "Cool" (a kind
+    with one group gets no adjective; middle groups are "Mild", numbered when there are several).
+    """
+    names = {}
+    for kind, is_day_off in (("working day", False), ("weekend or holiday", True)):
+        rows = [row for row in summary if (row["weekend_or_holiday_share"] >= DAYS_OFF_SHARE) == is_day_off]
+        # A group without temperature sorts as the coolest rather than failing.
+        rows.sort(key=lambda row: row["mean_temperature_c"] or float("-inf"), reverse=True)
+        middle = len(rows) - 2
+        for position, row in enumerate(rows):
+            if len(rows) == 1:
+                name = kind.capitalize()
+            elif position == 0:
+                name = f"Warm {kind}"
+            elif position == len(rows) - 1:
+                name = f"Cool {kind}"
+            else:
+                name = f"Mild {kind}" + (f" {position}" if middle > 1 else "")
+            names[row["day_type"]] = name
+    return names
+
+
 def train_day_types(
     spark: SparkSession, paths: DataPaths, k_values: tuple[int, ...] = (3, 4, 5, 6, 7, 8)
 ) -> dict:
-    """Fit types on 2021?2024 only, then assign all complete days to those learned centers."""
+    """Fit types on the training years only, then assign all complete days to those learned centers."""
     hourly = spark.read.parquet(str(paths.processed / "hourly_features"))
     profiles = daily_profiles(hourly).cache()
     try:
-        training = profiles.where(F.year("local_date").between(2021, 2024))
+        first, last = SPLITS["train"]
+        training = profiles.where(F.year("local_date").between(first, last))
         model, scores = fit_day_types(training, k_values)
         assignments = model.transform(profiles).cache()
         try:
             summary = describe(assignments, hourly).orderBy("day_type").toPandas().to_dict("records")
             for row in summary:
                 row["mean_profile"] = row["mean_profile"].tolist()
+                row["peak_local_hour"] = max(range(24), key=row["mean_profile"].__getitem__)
                 for key, value in row.items():
                     if isinstance(value, float) and not math.isfinite(value):
                         row[key] = None
+            names = name_day_types(summary)
+            summary = [
+                {"day_type": row["day_type"], "name": names[row["day_type"]], **row} for row in summary
+            ]
             folder = paths.models / "day_types"
             model.write().overwrite().save(str(folder / "pipeline"))
             assignments.select("local_date", "day_type").write.mode("overwrite").parquet(
                 str(folder / "assignments")
             )
             report = {
-                "chosen_k": model.getK(),
+                "chosen_k": model.stages[-1].getK(),
                 "silhouettes": scores,
                 "training_days": training.count(),
                 "assigned_days": assignments.count(),
                 "summary": summary,
                 "interpretation": (
-                    "Clusters describe normalized daily demand shapes. IDs are arbitrary. "
-                    "K uses training profiles only. Incomplete days and the blackout are excluded."
+                    f"Clusters describe normalized daily demand shapes, fitted on {first}-{last}. KMeans "
+                    "numbers them arbitrarily; each name is inferred from the group's share of weekends "
+                    "or holidays and its mean temperature. Incomplete days and the blackout are excluded."
                 ),
             }
-            (folder / "metrics.json").write_text(
-                json.dumps(report, indent=2, allow_nan=False), encoding="utf-8"
-            )
+            partial = folder / "metrics.json.part"
+            partial.write_text(json.dumps(report, indent=2, allow_nan=False), encoding="utf-8")
+            partial.replace(folder / "metrics.json")
             return report
         finally:
             assignments.unpersist()

@@ -10,6 +10,18 @@ from spain_electricity.regression_models import SPECS, train
 from spain_electricity.spark_session import get_spark, stop_spark
 
 
+def log_report(name: str, report: dict) -> None:
+    """Log the selected configuration, the 2026 test scores and the update's scores."""
+    update = report["update"]["evaluation"] if report["update"] else None
+    logging.info(
+        "%s: selected=%s test=%s update=%s",
+        name,
+        report["selected"],
+        report["evaluation"]["test"],
+        update,
+    )
+
+
 def main() -> None:
     """Train the selected models (all four by default); each writes only its own folder in data/models."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -27,18 +39,13 @@ def main() -> None:
         spark = get_spark("model-training", "local[*]", 12)
         for spec in SPECS:
             if spec.name in args.models:
-                report = train(spark, paths, spec)
-                logging.info(
-                    "%s: selected=%s test=%s rows=%s",
-                    spec.name,
-                    report["selected"],
-                    report["test"],
-                    report["rows"],
-                )
+                log_report(spec.name, train(spark, paths, spec))
         if "demand" in args.models:
-            train_demand(spark, paths)
+            log_report("demand", train_demand(spark, paths))
         if "day_types" in args.models:
-            logging.info("Day types: %s", train_day_types(spark, paths))
+            report = train_day_types(spark, paths)
+            names = [row["name"] for row in report.get("summary", [])]
+            logging.info("day_types: k=%s names=%s", report.get("chosen_k"), names)
     finally:
         stop_spark()
 

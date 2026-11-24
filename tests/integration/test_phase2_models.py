@@ -1,9 +1,10 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 import pytest
 from pyspark.ml import PipelineModel
 
 from spain_electricity.day_types import train_day_types
+from spain_electricity.models import estimate_column
 from spain_electricity.regression_models import PRICE, RENEWABLES, train
 
 pytestmark = pytest.mark.integration
@@ -69,19 +70,51 @@ def test_chronological_models_save_and_reload(spark, paths, spec, monkeypatch):
         return original_fit(self, frame, *args, **kwargs)
 
     monkeypatch.setattr(Pipeline, "fit", observed_fit)
-    report = train(spark, paths, spec, grids=TINY_GRIDS)
+    report = train(spark, paths, spec, grids=TINY_GRIDS, update_cutoff=date(2026, 1, 7))
     assert fitted_years[:3] == [{2021, 2022, 2023, 2024}] * 3
     assert fitted_years[3] == {2021, 2022, 2023, 2024, 2025}
-    assert report["rows"] == {"train": 384, "validation": 72, "test": 72}
+    # The update refits the same configuration on every valid hour before the cutoff, 2026 included.
+    assert fitted_years[4] == {2021, 2022, 2023, 2024, 2025, 2026}
+    assert report["split_hours"] == {"train": 384, "validation": 72, "test": 72}
     # Like demand, the refit uses every valid 2025 hour, not only those with a baseline.
     assert report["refit"] == {"years": "2021-2025", "hours": 384 + 96}
     assert [item["model"] for item in report["candidates"]] == ["linear", "random_forest", "gbt"]
-    assert "bias" in report["test"]["model"] and "bias" in report["validation_baseline"]
+    assert report["baselines"] == {"same_hour_yesterday": spec.baseline}
+    for split in ("validation", "test"):
+        assert set(report["evaluation"][split]) == {"model", "same_hour_yesterday", "hours"}
+        assert "bias" in report["evaluation"][split]["model"]
     assert not (paths.models / spec.name / "metrics.json.part").exists()
     assert report["selected"]["model"] == min(report["candidates"], key=lambda item: item["mae"])["model"]
-    assert report["test"]["hours"] == report["rows"]["test"]
+    assert report["evaluation"]["test"]["hours"] == report["split_hours"]["test"]
     assert report["features"] and all(item["feature"] for item in report["features"])
     assert PipelineModel.load(str(paths.models / spec.name / "pipeline"))
+    saved = spark.read.parquet(str(paths.models / spec.name / "predictions"))
+    assert {row.split for row in saved.select("split").distinct().collect()} == {"validation", "test"}
+    assert estimate_column(spec.label) in saved.columns
+
+    # 2021-2025 (5 x 96 hours) plus local 5-6 January 2026 (23 + 24 hours) train the update; it is
+    # scored on local 7-9 January (24 + 24 + 1 hours), all of which have the t-24h baseline.
+    update = report["update"]
+    assert update["training_hours"] == 480 + 47
+    assert update["train_until"] == "2026-01-06"
+    assert (update["evaluated_from"], update["evaluated_until"]) == ("2026-01-07", "2026-01-09")
+    assert set(update["evaluation"]) == {"model", "model_through_2025", "same_hour_yesterday", "hours"}
+    assert update["evaluation"]["hours"] == 49
+    assert update["features"]
+    folder = paths.models / spec.name / "update"
+    assert PipelineModel.load(str(folder / "pipeline"))
+    updated = spark.read.parquet(str(folder / "predictions"))
+    assert updated.count() == 49
+    assert {estimate_column(spec.label), estimate_column(spec.label, previous=True)} <= set(updated.columns)
+
+
+def test_update_is_skipped_and_cleared_without_hours_after_the_cutoff(spark, paths):
+    history(spark).write.parquet(str(paths.processed / "hourly_features"))
+    stale = paths.models / PRICE.name / "update" / "pipeline"
+    stale.mkdir(parents=True)
+    report = train(spark, paths, PRICE, grids=TINY_GRIDS, update_cutoff=date(2027, 1, 1))
+    assert report["update"] is None
+    assert not (paths.models / PRICE.name / "update").exists()
 
 
 def test_day_types_save_training_only_selection_and_descriptors(spark, paths):
@@ -101,5 +134,9 @@ def test_day_types_save_training_only_selection_and_descriptors(spark, paths):
     assert daily_profiles(frame).count() > 3
     report = train_day_types(spark, paths, (2,))
     assert report["chosen_k"] == 2
+    assert isinstance(PipelineModel.load(str(paths.models / "day_types" / "pipeline")), PipelineModel)
+    for row in report["summary"]:
+        assert row["name"] and 0 <= row["peak_local_hour"] <= 23
+    assert len({row["name"] for row in report["summary"]}) == 2
     assert report["training_days"] < report["assigned_days"]
     assert sum(row["days"] for row in report["summary"]) == report["assigned_days"]

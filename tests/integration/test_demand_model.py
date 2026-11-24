@@ -34,7 +34,7 @@ def test_train_save_monitor_and_render(spark, paths, fixtures_dir):
     )
     hourly = add_calendar(hourly, holidays_frame(spark, [2024, 2025, 2026]))
     hourly.write.parquet(str(paths.processed / "hourly_features"))
-    result = models.train_demand(spark, paths, grids=TINY_GRIDS)
+    result = models.train_demand(spark, paths, grids=TINY_GRIDS, update_cutoff=date(2026, 1, 10))
     # Evaluation hours need REE's forecast and the same hour the day before: each block's first day
     # has no previous day, so 72 hours per evaluation block become 48.
     assert result["split_hours"] == {"train": 168, "validation": 48, "test": 48}
@@ -46,6 +46,18 @@ def test_train_save_monitor_and_render(spark, paths, fixtures_dir):
     # The winner is refit on every valid hour of 2021-2025 before the single 2026 evaluation.
     assert result["refit"]["hours"] == 168 + 72
     assert set(result["alert_rate"]) == {"validation", "test"}
+    assert result["unit"] == "MW" and result["baselines"] == models.BASELINES
+    # The update refits the winner on every valid hour before local 10 January 2026: 2024 (168),
+    # 2025 (72) and local 8-9 January 2026 (23 + 24). It is scored on local 10-11 January (24 + 1).
+    update = result["update"]
+    assert update["training_hours"] == 168 + 72 + 47
+    assert update["evaluation"]["hours"] == 25
+    assert set(update["evaluation"]) == {"model", "model_through_2025", "ree", "same_hour_yesterday", "hours"}
+    assert set(update["alert_rate"]) == {"model", "model_through_2025"}
+    assert PipelineModel.load(str(paths.models / "demand" / "update" / "pipeline"))
+    saved_update = spark.read.parquet(str(paths.models / "demand" / "update" / "predictions"))
+    assert saved_update.count() == 25
+    assert {"expected_demand_mw", "expected_demand_mw_through_2025"} <= set(saved_update.columns)
     assert result["audit"]["duplicate_hours"] == 0
     assert result["alert_threshold_mw"] > 0
     assert models.load_metadata(paths)["selected"] == result["selected"]
@@ -127,6 +139,10 @@ def test_train_save_monitor_and_render(spark, paths, fixtures_dir):
             "render_models(get_spark(), DataPaths.from_env(), LIGHT)\n",
             default_timeout=120,
         ).run()
+        assert not app.exception
+        # The update version is the second option of the model-version selector.
+        version = next(item for item in app.radio if item.key == "model_version")
+        version.set_value("update").run()
         assert not app.exception
     finally:
         if previous is None:

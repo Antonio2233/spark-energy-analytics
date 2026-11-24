@@ -1,4 +1,5 @@
-from spain_electricity import catalog, charts, views
+from spain_electricity import catalog, charts, models, views
+from spain_electricity.regression_models import SPECS
 
 
 def test_every_shown_series_is_explained():
@@ -41,3 +42,12 @@ def test_attribute_describes_structural_columns():
 
 def test_attribute_of_an_unknown_column_is_blank():
     assert catalog.attribute("not_a_column") == ("", "")
+
+
+def test_every_model_chart_series_is_explained():
+    targets = [(models.TARGET, list(models.BASELINES.values()))]
+    targets += [(spec.label, [spec.baseline]) for spec in SPECS]
+    for label, baselines in targets:
+        estimates = [models.estimate_column(label), models.estimate_column(label, previous=True)]
+        for key in [label, *estimates, *baselines]:
+            assert catalog.entry(key).description, key

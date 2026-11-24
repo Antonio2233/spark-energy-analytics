@@ -8,7 +8,7 @@ from collections import Counter
 from spain_electricity.config import DataPaths
 from spain_electricity.download import download_all
 from spain_electricity.pipeline import run_ingest
-from spain_electricity.sampling import sample_days, sample_jobs
+from spain_electricity.sampling import manifest_path, sample_days, sample_jobs
 from spain_electricity.spark_session import get_spark, stop_spark
 
 
@@ -35,7 +35,7 @@ def main() -> int:
         "skipped": report.skipped,
         "failed": report.failed,
     }
-    (paths.root / "demand_sample.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    manifest_path(paths).write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     if report.failed:
         logging.error("%d downloads failed; rerun before training", len(report.failed))
         return 1

@@ -1,10 +1,11 @@
-"""Price and renewable-share pipelines, searched, refit and evaluated like the demand model."""
+"""Price and renewable-share pipelines, searched, refit, evaluated and updated like the demand model."""
 
 import json
 import math
 import time
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from pathlib import Path
 
 from pyspark.ml import Pipeline, PipelineModel
 from pyspark.ml.evaluation import RegressionEvaluator
@@ -16,7 +17,17 @@ from pyspark.sql import functions as F
 
 from spain_electricity.config import ANOMALY_DATES, DataPaths
 from spain_electricity.features import add_phase2_features
-from spain_electricity.models import GRIDS, SPLITS
+from spain_electricity.models import (
+    GRIDS,
+    MIN_UPDATE_HOURS,
+    SPLITS,
+    UPDATE_CUTOFF,
+    clear_update,
+    estimate_column,
+    feature_weights,
+    update_period,
+    update_split,
+)
 
 
 @dataclass(frozen=True)
@@ -32,6 +43,11 @@ class ModelSpec:
     unit: str
     # Products of a numeric input and a flag, so the flag can change that input's effect.
     interactions: tuple[tuple[str, str], ...] = ()
+
+    @property
+    def baselines(self) -> dict[str, str]:
+        """Name the persistence baseline the way the demand report names its naive one."""
+        return {"same_hour_yesterday": self.baseline}
 
 
 PRICE = ModelSpec(
@@ -137,22 +153,79 @@ def evaluate(df: DataFrame, label: str, prediction: str) -> dict:
     return {key: value if math.isfinite(value) else None for key, value in values.items()}
 
 
-def feature_weights(model: PipelineModel, transformed: DataFrame, vector: str) -> list[dict]:
-    """Name every expanded feature using assembler metadata, including one-hot categories."""
-    estimator = model.stages[-1]
-    values = estimator.coefficients if hasattr(estimator, "coefficients") else estimator.featureImportances
-    attributes = transformed.schema[vector].metadata["ml_attr"]["attrs"]
-    names = {item["idx"]: item["name"] for group in attributes.values() for item in group}
-    return [
-        {"feature": names.get(index, f"feature_{index}"), "weight": float(value)}
-        for index, value in enumerate(values)
-    ]
+def _predictions(scored: DataFrame, spec: ModelSpec, split: str, *extra: str) -> DataFrame:
+    """Keep the inputs, target, baseline and estimate, so the saved model can be checked offline."""
+    inputs = dict.fromkeys(
+        ["hour_utc", "local_date", spec.label, spec.baseline, *spec.numeric, *spec.categorical, *spec.flags]
+    )
+    return scored.select(
+        *inputs,
+        F.col("prediction").alias(estimate_column(spec.label)),
+        *extra,
+        F.lit(split).alias("split"),
+    )
+
+
+def _scores(scored: DataFrame, spec: ModelSpec, hours: int) -> dict:
+    """Score the model and the persistence baseline on the same paired hours."""
+    return {
+        "model": evaluate(scored, spec.label, "prediction"),
+        "same_hour_yesterday": evaluate(scored, spec.label, spec.baseline),
+        "hours": hours,
+    }
+
+
+def _train_update(
+    spec: ModelSpec,
+    pipeline: Pipeline,
+    params: dict,
+    final: PipelineModel,
+    frames: dict[str, DataFrame],
+    target: Path,
+    cutoff: date,
+) -> dict | None:
+    """Refit the selected configuration through the day before ``cutoff`` and score it beside ``final``."""
+    hours = frames["update"].count()
+    if hours < MIN_UPDATE_HOURS:
+        clear_update(target / "update")
+        return None
+    updated = pipeline.fit(frames["update_train"], params)
+    through_2025 = estimate_column(spec.label, previous=True)
+    previous = final.transform(frames["update"]).select("hour_utc", F.col("prediction").alias(through_2025))
+    scored = updated.transform(frames["update"]).join(previous, "hour_utc").cache()
+    try:
+        scores = _scores(scored, spec, hours)
+        result = {
+            **update_period(frames["update_train"].count(), frames["update"], cutoff),
+            "evaluation": {
+                "model": scores["model"],
+                "model_through_2025": evaluate(scored, spec.label, through_2025),
+                "same_hour_yesterday": scores["same_hour_yesterday"],
+                "hours": hours,
+            },
+            "features": feature_weights(updated, scored, "features_raw"),
+        }
+        updated.write().overwrite().save(str(target / "update" / "pipeline"))
+        _predictions(scored, spec, "update", through_2025).write.mode("overwrite").parquet(
+            str(target / "update" / "predictions")
+        )
+        return result
+    finally:
+        scored.unpersist()
 
 
 def train(
-    spark: SparkSession, paths: DataPaths, spec: ModelSpec, grids: dict[str, dict[str, list]] | None = None
+    spark: SparkSession,
+    paths: DataPaths,
+    spec: ModelSpec,
+    grids: dict[str, dict[str, list]] | None = None,
+    update_cutoff: date = UPDATE_CUTOFF,
 ) -> dict:
-    """Choose on 2025, refit on every valid 2021-2025 hour, and evaluate once on paired 2026 hours."""
+    """Choose on 2025, refit on every valid 2021-2025 hour, evaluate once on paired 2026 hours, then update.
+
+    The update refits the same configuration on every valid hour before ``update_cutoff`` and scores it,
+    beside the 2021-2025 model, on the paired hours from that date.
+    """
     started = time.perf_counter()
     hourly = add_phase2_features(spark.read.parquet(str(paths.processed / "hourly_features")))
     if hourly.groupBy("hour_utc").count().where("count > 1").limit(1).count():
@@ -162,12 +235,15 @@ def train(
     years = {
         name: valid.where(F.year("local_date").between(first, last)) for name, (first, last) in SPLITS.items()
     }
-    # Training and the refit use every complete row; comparisons need model and baseline on identical hours.
+    update_train, update_hours = update_split(valid, update_cutoff)
+    # Training and the refits use every complete row; comparisons need model and baseline on identical hours.
     frames = {
         "train": years["train"],
         "refit": years["train"].unionByName(years["validation"]),
         "validation": paired(years["validation"], spec),
         "test": paired(years["test"], spec),
+        "update_train": update_train,
+        "update": paired(update_hours, spec),
     }
     frames = {key: value.cache() for key, value in frames.items()}
     try:
@@ -188,49 +264,39 @@ def train(
                 }
                 candidates.append(record)
                 if metrics["mae"] is not None and metrics["mae"] < best_mae:
-                    best_mae, best = metrics["mae"], (record, pipeline, params)
+                    best_mae, best = metrics["mae"], (record, pipeline, params, fitted)
         if best is None:
             raise ValueError("No finite validation candidate")
-        selected, pipeline, params = best
+        selected, pipeline, params, fitted = best
         final = pipeline.fit(frames["refit"], params)
-        predictions = final.transform(frames["test"]).cache()
         target = paths.models / spec.name
+        # Validation estimates come from the 2021-2024 fit that was selected; test ones from the refit.
+        validation = fitted.transform(frames["validation"]).cache()
+        test = final.transform(frames["test"]).cache()
         try:
-            test = {
-                "model": evaluate(predictions, spec.label, "prediction"),
-                "baseline": evaluate(predictions, spec.label, spec.baseline),
-                "hours": counts["test"],
+            evaluation = {
+                "validation": _scores(validation, spec, counts["validation"]),
+                "test": _scores(test, spec, counts["test"]),
             }
-            weights = feature_weights(final, predictions, "features_raw")
+            weights = feature_weights(final, test, "features_raw")
             final.write().overwrite().save(str(target / "pipeline"))
-            saved_columns = list(
-                dict.fromkeys(
-                    [
-                        "hour_utc",
-                        "local_date",
-                        spec.label,
-                        spec.baseline,
-                        *spec.numeric,
-                        *spec.categorical,
-                        *spec.flags,
-                        "prediction",
-                    ]
-                )
-            )
-            predictions.select(*saved_columns).write.mode("overwrite").parquet(str(target / "predictions"))
+            saved = _predictions(validation, spec, "validation").unionByName(_predictions(test, spec, "test"))
+            saved.write.mode("overwrite").parquet(str(target / "predictions"))
         finally:
-            predictions.unpersist()
+            validation.unpersist()
+            test.unpersist()
+        update = _train_update(spec, pipeline, params, final, frames, target, update_cutoff)
         report = {
             "label": spec.label,
-            "baseline": spec.baseline,
             "unit": spec.unit,
+            "baselines": spec.baselines,
             "selected": {key: selected[key] for key in ("model", "parameters")},
             "candidates": candidates,
-            "validation_baseline": evaluate(frames["validation"], spec.label, spec.baseline),
-            "test": test,
+            "evaluation": evaluation,
             "features": weights,
-            "rows": counts,
+            "split_hours": counts,
             "refit": {"years": "2021-2025", "hours": frames["refit"].count()},
+            "update": update,
             "weight_kind": "standardized coefficient" if selected["model"] == "linear" else "tree importance",
             "trained_at": datetime.now(UTC).isoformat(),
             "training_seconds": round(time.perf_counter() - started, 2),

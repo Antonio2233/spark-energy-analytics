@@ -1,3 +1,4 @@
+import json
 from datetime import date, datetime
 
 import pytest
@@ -98,3 +99,34 @@ def test_paired_rows_can_require_every_baseline(spark):
     )
     assert models.paired_rows(df, (models.BASELINE, models.NAIVE)).count() == 1
     assert models.paired_rows(df).count() == 2
+
+
+def test_update_split_trains_before_the_cutoff_and_evaluates_from_it(spark):
+    frame = spark.createDataFrame(
+        [(date(2025, 12, 31),), (date(2026, 10, 31),), (date(2026, 11, 1),), (date(2026, 11, 23),)],
+        "local_date date",
+    )
+    training, evaluation = models.update_split(frame, date(2026, 11, 1))
+    assert sorted(row.local_date for row in training.collect()) == [date(2025, 12, 31), date(2026, 10, 31)]
+    assert sorted(row.local_date for row in evaluation.collect()) == [date(2026, 11, 1), date(2026, 11, 23)]
+
+
+def test_saved_estimates_are_named_after_their_target():
+    assert models.estimate_column(models.TARGET) == "expected_demand_mw"
+    previous = models.estimate_column("spot_price_eur_mwh", previous=True)
+    assert previous == "expected_spot_price_eur_mwh_through_2025"
+
+
+def test_a_sample_manifest_left_behind_does_not_label_the_full_history(spark, paths):
+    paths.root.mkdir(parents=True, exist_ok=True)
+    manifest = {"requested_days": ["2025-01-08"], "days_by_year": {"2025": 1}}
+    (paths.root / "demand_sample.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    def hourly(*days):
+        return spark.createDataFrame([(day,) for day in days], "local_date date")
+
+    # REE's 30-hour window spills into the neighbouring days of each requested day.
+    assert sampling.sampled_history(paths, hourly(date(2025, 1, 7), date(2025, 1, 8), date(2025, 1, 9)))
+    assert sampling.sampled_history(paths, hourly(date(2025, 1, 8), date(2025, 3, 1))) is None
+    (paths.root / "demand_sample.json").unlink()
+    assert sampling.sampled_history(paths, hourly(date(2025, 1, 8))) is None

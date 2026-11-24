@@ -1,1 +1,0 @@
-{"class":"org.apache.spark.ml.feature.SQLTransformer","timestamp":1795540277399,"sparkVersion":"4.2.1","uid":"SQLTransformer_1a0dc50f7a4c","paramMap":{"statement":"SELECT *, CAST(iberian_exception AS DOUBLE) AS iberian_exception_number FROM __THIS__"},"defaultParamMap":{}}

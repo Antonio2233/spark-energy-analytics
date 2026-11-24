@@ -82,7 +82,8 @@ def _color(domain: list[str], theme: ChartTheme, title: str | None = None, colum
         scale=alt.Scale(domain=domain, range=list(theme.slots[: len(domain)])),
         sort=domain,
         title=title,
-        legend=alt.Legend(orient="top", columns=columns or len(domain)),
+        # labelLimit 0: never truncate, so similar names (two model versions) stay distinguishable.
+        legend=alt.Legend(orient="top", columns=columns or len(domain), labelLimit=0),
     )
 
 
@@ -486,11 +487,12 @@ def importance_chart(weights: pd.DataFrame, theme: ChartTheme) -> alt.Chart:
 
 
 def profiles_chart(summary: pd.DataFrame, theme: ChartTheme) -> alt.Chart:
-    """Compare the mean normalized demand curve of each learned day type."""
+    """Compare the mean normalized demand curve of each learned day type, by its inferred name if any."""
+    names = summary["name"] if "name" in summary else summary["day_type"].astype(str)
     rows = [
-        {"day_type": str(row.day_type), "local_hour": hour, "relative_demand": value}
-        for row in summary.itertuples()
-        for hour, value in enumerate(row.mean_profile)
+        {"day_type": name, "local_hour": hour, "relative_demand": value}
+        for name, profile in zip(names, summary["mean_profile"], strict=True)
+        for hour, value in enumerate(profile)
     ]
     data = pd.DataFrame(rows)
     return (
