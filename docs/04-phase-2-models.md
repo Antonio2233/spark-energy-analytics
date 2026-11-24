@@ -1,19 +1,23 @@
 # Phase 2: explanatory models and daily demand types
 
-## Reproduce the compact experiment
+## Reproduce
 
 Use the normal Java/uv setup in README or README_MAC. No Kafka or new service is required.
 
 ```bash
-uv run python scripts/prepare_demand.py
-uv run python scripts/prepare_phase2.py
+uv run python scripts/download_history.py --start 2021-01-01 --end <yesterday>
+uv run python scripts/ingest.py
 uv run python scripts/train_models.py
 uv run streamlit run app/streamlit_app.py
 ```
 
-The existing seasonal demand sample covers 96 days, four days in each of January, April, July and October for 2021-2026. `prepare_phase2.py` fetches only the corresponding 24 monthly price responses and six annual MIBGAS workbooks. Downloads are resumable. Raw and processed data remain local. The default training command keeps the saved demand pipeline and trains price, renewable share and day types. Use `--models price`, `--models renewable_share` or `--models day_types` to retrain one part. `--models demand` explicitly retrains demand.
+`train_models.py` trains the four models by default: demand, price, renewable share and day types. Use `--models price`, `--models renewable_share`, `--models day_types` or `--models demand` to retrain one part; each run writes only the folders of the models it trains.
 
-Saved models and small result artifacts live in `data/models/<name>/`. A checkout can inspect results in Models and run `notebooks/02_models.ipynb` without downloading history or retraining. Full History and historical Energy Desk views still require preparation. The new models are explanatory batch models; this phase does not add new price or renewable inference queries to the live controller. The existing demand streaming model remains in use.
+For a quick experiment without the full download, `scripts/prepare_demand.py` and `scripts/prepare_phase2.py` fetch the seasonal sample. It covers 96 days (four in each of January, April, July and October for 2021–2026), 24 monthly price responses and six annual MIBGAS workbooks. Its results describe the sampled dates only.
+
+Saved models and small result artifacts live in `data/models/<name>/` and are versioned. A checkout can inspect results in Models and run `notebooks/02_models.ipynb` without downloading history or retraining. Historical views and the Energy Desk still need the downloaded and ingested data.
+
+The price and renewable-share models are explanatory batch models: this phase adds no live inference for them. The demand model remains the one used in streaming.
 
 ## Hourly table
 
@@ -31,7 +35,7 @@ Fit candidates on 2021-2024 and select by MAE on 2025 only. Refit the selected c
 
 These are contemporaneous explanatory estimates. They do not demonstrate day-ahead forecasting skill because contemporaneous weather, renewable share and demand are not known a day ahead. The persistence baselines describe exact UTC t-24h. Negative prices are retained. Renewable share is renewable MW divided by demand MW and may exceed one during exports; predictions are not clipped to [0,1].
 
-MAE and RMSE use EUR/MWh for price and fractions for renewable share (multiply by 100 for percentage points). R-squared may be negative. The small seasonal sample does not support full-year conclusions, and full-history training/evaluation remains required for final delivery.
+MAE and RMSE use EUR/MWh for price and fractions for renewable share (multiply by 100 for percentage points). R-squared may be negative.
 
 ## KMeans day types
 
@@ -46,17 +50,42 @@ Models shows the saved demand results, validation candidates and paired test met
 The thin notebook calls package functions and draws the saved reports. It makes no downloads and does not fit models. Training artifacts carry input row counts and measured runtime. Cluster summaries refer only to complete days present in the saved input.
 
 
-## Measured compact-sample results (24 November 2026)
+## Measured full-history results (24 November 2026)
 
-Both new regressions used 1,536 training hours and 288 paired validation/test hours each. The 24-hour baseline is missing on the first day of each seasonal block, removing 96 of the 384 annual evaluation hours. These are seasonal sample results, not full-year evaluations.
+The models use the full 2021–2026 history:
 
-| Target | Selected family | Test MAE, model | Test MAE, t-24h | Test RMSE, model | Test RMSE, t-24h | Model R-squared |
-|---|---|---:|---:|---:|---:|---:|
-| Price (EUR/MWh) | Linear, regParam=0.1 | 28.756 | 15.493 | 34.314 | 21.383 | 0.730 |
-| Renewable share (fraction) | Random Forest, depth=7 | 0.15861 | 0.06852 | 0.18702 | 0.08651 | 0.050 |
+| Target | Training hours | Paired validation hours | Paired test hours |
+|---|---:|---:|---:|
+| Price | 35,040 | 8,736 | 7,848 |
+| Renewable share | 35,063 | 8,736 | 7,848 |
 
-The renewable MAEs correspond to 15.861 and 6.852 percentage points. Persistence beats the learned models on this held-out sample. This is a limitation to report, not a reason to select or tune a different model on the test. Five-city wind/radiation is only a proxy for conditions across generating assets; it does not cover every wind/solar installation. Train-and-evaluate runtimes recorded in the reports were 49.42 seconds for price and 38.39 seconds for renewable share on the local run, excluding downloads and feature preparation.
+Training, evaluation and saving took 12.7 s for price, 10.1 s for renewable share and 10.7 s for day types, on 12 cores.
 
-KMeans selected k=3 with a training silhouette of 0.4642, using 64 training days and assigning 96 days. The saved types have 44, 23 and 29 days respectively. Type 0 contains no weekend/holiday days in this sample, type 1 has an 82.6% weekend/holiday share, and type 2 has the highest mean temperature (21.7 C). These are descriptive associations in the sample, not fixed labels for future dates.
+| Target | Selected | Split | MAE, model | MAE, t-24h | RMSE, model | RMSE, t-24h | R², model | R², t-24h | Bias, model |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|
+| Price (EUR/MWh) | Random Forest, depth 7 | Validation 2025 | 25.40 | 19.92 | 30.61 | 28.85 | 0.587 | 0.633 | |
+| | | Test 2026 | 39.61 | 22.66 | 50.78 | 36.84 | 0.573 | 0.775 | −17.56 |
+| Renewable share (fraction) | Random Forest, depth 7 | Validation 2025 | 0.1049 | 0.0702 | 0.1279 | 0.0916 | 0.278 | 0.630 | |
+| | | Test 2026 | 0.1173 | 0.0632 | 0.1392 | 0.0876 | 0.417 | 0.769 | +0.0885 |
+
+The bias is the mean of actual minus model, measured on the saved 2026 predictions. The reports do not yet store it for validation.
+
+**Price.** With contemporaneous inputs only, the model explains 57% of the 2026 variation in price. In the Random Forest, gas has 59% of the importance, renewable share 25%, the Iberian-exception regime 8% and demand 6%. In 2026 it overestimates the price by 17.6 EUR/MWh on average.
+
+**Renewable share.** The model explains 42% of the variation, with radiation (56% of the importance) and wind (25%). It underestimates 2026 by 8.9 percentage points on average. Its inputs carry no trend, while the share rises from 0.456 in 2021 to 0.608 in 2026 (hourly means; 0.446, 0.537, 0.589 and 0.577 in between).
+
+**Persistence wins.** For both targets, the same hour 24 hours earlier is more accurate than the model. These are explanatory models, which say how much each driver accounts for, not forecasts. Two follow-ups would improve them: a capacity or recent-level input for the renewable share, and a gas × regime interaction for price.
+
+**Day types.** KMeans tried k = 3 to 8 on 1,461 complete training days (2021–2024); k = 3 had the best silhouette, 0.427. The other values were 0.407, 0.397, 0.382, 0.384 and 0.396. All 2,152 complete days were assigned. The IDs are arbitrary; the descriptors suggest these readings:
+
+| Type | Days | Mean temperature | Weekend or holiday | Mean demand (MW) | Profile peak (local) |
+|---|---:|---:|---:|---:|---:|
+| 0 · warm working day | 594 | 23.6 °C | 13% | 29,097 | 13:00 |
+| 1 · cool working day | 960 | 13.2 °C | 0% | 28,133 | 20:00 |
+| 2 · day off | 598 | 16.8 °C | 97% | 24,228 | 21:00 |
+
+These are descriptive associations, not fixed labels for future dates.
+
+An earlier run on the compact seasonal sample used 1,536 training hours and 288 paired evaluation hours per target. Persistence beat both regressions there too: price test MAE was 28.8 against 15.5 EUR/MWh, and renewable share 0.159 against 0.069.
 
 The saved prediction tables include the explanatory inputs as well as the target, baseline and model prediction, allowing offline inference checks from a checkout with no raw/processed history.

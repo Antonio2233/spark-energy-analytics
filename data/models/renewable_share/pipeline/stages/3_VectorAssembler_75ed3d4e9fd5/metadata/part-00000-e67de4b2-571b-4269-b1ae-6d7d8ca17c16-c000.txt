@@ -1,0 +1,1 @@
+{"class":"org.apache.spark.ml.feature.VectorAssembler","timestamp":1795540287933,"sparkVersion":"4.2.1","uid":"VectorAssembler_75ed3d4e9fd5","paramMap":{"inputCols":["wind_speed_100m_kmh","shortwave_radiation_wm2","local_hour_encoded","month_encoded"],"outputCol":"features_raw"},"defaultParamMap":{"handleInvalid":"error","outputCol":"VectorAssembler_75ed3d4e9fd5__output"}}

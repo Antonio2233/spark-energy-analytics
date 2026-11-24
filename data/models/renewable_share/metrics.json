@@ -14,180 +14,212 @@
       "parameters": {
         "regParam": 0.1
       },
-      "mae": 0.11276734717293964,
-      "rmse": 0.1310671894949264,
-      "r2": 0.4321542541651766
+      "mae": 0.1086920225744411,
+      "rmse": 0.13114819416735532,
+      "r2": 0.2412298917490615
     },
     {
       "model": "linear",
       "parameters": {
         "regParam": 10.0
       },
-      "mae": 0.16042392317720855,
-      "rmse": 0.17847307524563244,
-      "r2": -0.05290167544002333
+      "mae": 0.1397619266325667,
+      "rmse": 0.16429486463576523,
+      "r2": -0.19078556492092869
     },
     {
       "model": "random_forest",
       "parameters": {
         "maxDepth": 4
       },
-      "mae": 0.10655677961141784,
-      "rmse": 0.12598593210031134,
-      "r2": 0.47532966511818797
+      "mae": 0.10838574187731306,
+      "rmse": 0.13162097095933642,
+      "r2": 0.2357494428305663
     },
     {
       "model": "random_forest",
       "parameters": {
         "maxDepth": 7
       },
-      "mae": 0.10384489188416376,
-      "rmse": 0.1257363191820112,
-      "r2": 0.47740663915557024
+      "mae": 0.10493833775718453,
+      "rmse": 0.12794052136733713,
+      "r2": 0.2778925662407774
     }
   ],
   "validation_baseline": {
-    "mae": 0.06854873415902578,
-    "rmse": 0.0903682424393026,
-    "r2": 0.7300557541524504
+    "mae": 0.07018616279749723,
+    "rmse": 0.09155034733571578,
+    "r2": 0.630252219100421
   },
   "test": {
     "model": {
-      "mae": 0.15861099550702074,
-      "rmse": 0.18702459796458662,
-      "r2": 0.05027196456281924
+      "mae": 0.11730993868239374,
+      "rmse": 0.1391812225566766,
+      "r2": 0.41741265614153045
     },
     "baseline": {
-      "mae": 0.06852066001654056,
-      "rmse": 0.0865078058562542,
-      "r2": 0.7968052922481149
+      "mae": 0.0631952185064275,
+      "rmse": 0.08757340036499103,
+      "r2": 0.7693549289277046
     },
-    "hours": 288
+    "hours": 7848
   },
   "features": [
     {
       "feature": "wind_speed_100m_kmh",
-      "weight": 0.19272804070681104
+      "weight": 0.24765745313587004
     },
     {
       "feature": "shortwave_radiation_wm2",
-      "weight": 0.4985254712970335
-    },
-    {
-      "feature": "local_hour_encoded_0",
-      "weight": 0.0008722007226950306
+      "weight": 0.5607338452922304
     },
     {
       "feature": "local_hour_encoded_1",
-      "weight": 0.0005902778640288032
+      "weight": 2.48582386680742e-05
     },
     {
       "feature": "local_hour_encoded_10",
-      "weight": 0.004282070347346243
+      "weight": 0.00993177301330692
     },
     {
       "feature": "local_hour_encoded_11",
-      "weight": 0.001993418500714825
+      "weight": 0.013171814425912975
     },
     {
       "feature": "local_hour_encoded_12",
-      "weight": 0.005359068448623146
+      "weight": 0.012310453996481039
     },
     {
       "feature": "local_hour_encoded_13",
-      "weight": 0.004489740505130158
+      "weight": 0.014898814715886215
     },
     {
       "feature": "local_hour_encoded_14",
-      "weight": 0.010450658812972989
+      "weight": 0.025945867169826147
     },
     {
       "feature": "local_hour_encoded_15",
-      "weight": 0.007218591428817543
+      "weight": 0.013110017241577341
     },
     {
       "feature": "local_hour_encoded_16",
-      "weight": 0.001879536221039082
+      "weight": 5.793517320862085e-05
     },
     {
       "feature": "local_hour_encoded_17",
-      "weight": 0.0024469454267989498
+      "weight": 0.00017522356633801502
     },
     {
       "feature": "local_hour_encoded_18",
-      "weight": 0.006272367433809247
+      "weight": 0.0003704621529486686
     },
     {
       "feature": "local_hour_encoded_19",
-      "weight": 0.0019458365224396923
+      "weight": 0.0021033599636828674
     },
     {
       "feature": "local_hour_encoded_2",
-      "weight": 0.0016044005355662476
+      "weight": 5.9103326861364675e-05
     },
     {
       "feature": "local_hour_encoded_20",
-      "weight": 0.004416207745055212
+      "weight": 0.006246185630470164
     },
     {
       "feature": "local_hour_encoded_21",
-      "weight": 0.0011767386733496526
+      "weight": 0.0009640293502299777
     },
     {
       "feature": "local_hour_encoded_22",
-      "weight": 0.0016384061351369346
+      "weight": 0.00025403654163550453
     },
     {
       "feature": "local_hour_encoded_23",
-      "weight": 0.0018437871933985536
+      "weight": 4.936041352421457e-05
     },
     {
       "feature": "local_hour_encoded_3",
-      "weight": 0.003184009050982288
+      "weight": 3.296335974946406e-05
     },
     {
       "feature": "local_hour_encoded_4",
-      "weight": 0.005454389475137615
+      "weight": 0.0018849851195975704
     },
     {
       "feature": "local_hour_encoded_5",
-      "weight": 0.006686261317636919
+      "weight": 0.003317094258773507
     },
     {
       "feature": "local_hour_encoded_6",
-      "weight": 0.004178876539541767
+      "weight": 0.004401855030765651
     },
     {
       "feature": "local_hour_encoded_7",
-      "weight": 0.00029243931273682935
+      "weight": 4.362741159702724e-05
     },
     {
       "feature": "local_hour_encoded_8",
-      "weight": 0.0012952054728170204
+      "weight": 5.158381394066709e-05
     },
     {
       "feature": "local_hour_encoded_9",
-      "weight": 0.0031981378345857705
+      "weight": 0.004306176750186383
+    },
+    {
+      "feature": "local_hour_encoded_0",
+      "weight": 7.690590351390239e-05
     },
     {
       "feature": "local_hour_encoded___unknown",
       "weight": 0.0
     },
     {
-      "feature": "month_encoded_1",
-      "weight": 0.011995833532125693
-    },
-    {
       "feature": "month_encoded_10",
-      "weight": 0.1401969164018265
+      "weight": 0.0012665990801451754
     },
     {
-      "feature": "month_encoded_4",
-      "weight": 0.057966175784497
+      "feature": "month_encoded_12",
+      "weight": 0.0002649730479583927
+    },
+    {
+      "feature": "month_encoded_5",
+      "weight": 0.009363438996236869
     },
     {
       "feature": "month_encoded_7",
-      "weight": 0.015817990757345888
+      "weight": 0.005927932481306625
+    },
+    {
+      "feature": "month_encoded_8",
+      "weight": 0.012404200786972418
+    },
+    {
+      "feature": "month_encoded_1",
+      "weight": 0.00039894459636170246
+    },
+    {
+      "feature": "month_encoded_3",
+      "weight": 0.008107811869643641
+    },
+    {
+      "feature": "month_encoded_11",
+      "weight": 0.0005207175651576253
+    },
+    {
+      "feature": "month_encoded_6",
+      "weight": 0.0030875981736366866
+    },
+    {
+      "feature": "month_encoded_9",
+      "weight": 0.02169365476915831
+    },
+    {
+      "feature": "month_encoded_4",
+      "weight": 0.014468364413151556
+    },
+    {
+      "feature": "month_encoded_2",
+      "weight": 0.0003159792234881302
     },
     {
       "feature": "month_encoded___unknown",
@@ -195,12 +227,12 @@
     }
   ],
   "rows": {
-    "train": 1536,
-    "validation": 288,
-    "test": 288
+    "train": 35063,
+    "validation": 8736,
+    "test": 7848
   },
   "weight_kind": "tree importance",
-  "trained_at": "2026-11-24T16:28:43.911878+00:00",
-  "training_seconds": 38.39,
+  "trained_at": "2026-11-24T17:11:28.599108+00:00",
+  "training_seconds": 10.11,
   "interpretation": "Contemporaneous explanatory estimate, not a day-ahead forecast. Baseline is exact UTC t-24h persistence. Results cover available complete hours."
 }

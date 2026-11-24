@@ -1,449 +1,220 @@
 {
-  "trained_at": "2026-11-16T17:19:13.856451+00:00",
-  "selected": {
-    "model": "random_forest",
-    "parameters": {
-      "depth": 8
-    }
-  },
-  "candidates": [
-    {
-      "model": "linear",
-      "parameters": {
-        "strength": 0.1
-      },
-      "mae": 1593.3567268299187,
-      "rmse": 1980.1496101323978,
-      "r2": 0.8280090373975715
-    },
-    {
-      "model": "linear",
-      "parameters": {
-        "strength": 10.0
-      },
-      "mae": 1593.0555090738992,
-      "rmse": 1976.821971569195,
-      "r2": 0.8285866128111927
-    },
-    {
-      "model": "random_forest",
-      "parameters": {
-        "depth": 5
-      },
-      "mae": 1828.340931763412,
-      "rmse": 2321.4855345608626,
-      "r2": 0.7636032063635456
-    },
-    {
-      "model": "random_forest",
-      "parameters": {
-        "depth": 8
-      },
-      "mae": 1271.077535374838,
-      "rmse": 1604.880019393201,
-      "r2": 0.8870217721329502
-    }
-  ],
-  "evaluation": {
-    "validation": {
-      "model": {
-        "mae": 1271.077535374838,
-        "rmse": 1604.880019393201,
-        "r2": 0.8870217721329502
-      },
-      "ree": {
-        "mae": 266.88281249999966,
-        "rmse": 360.7426092704176,
-        "r2": 0.994291730059798
-      },
-      "hours": 384
-    },
-    "test": {
-      "model": {
-        "mae": 2672.608923858277,
-        "rmse": 3357.115038626037,
-        "r2": 0.7007917838509378
-      },
-      "ree": {
-        "mae": 283.9192708333333,
-        "rmse": 376.6615594118169,
-        "r2": 0.9962334505974918
-      },
-      "hours": 384
-    }
-  },
-  "split_hours": {
-    "train": 1536,
-    "validation": 384,
-    "test": 384
-  },
-  "audit": {
-    "by_year": [
-      {
-        "year": 2021,
-        "hours": 384,
-        "days": 16,
-        "first": "2021-01-07 23:00:00",
-        "last": "2021-10-17 21:00:00",
-        "missing_demand_mw": 0,
-        "missing_temperature_c": 0,
-        "missing_peninsular_forecast_mw": 384
-      },
-      {
-        "year": 2022,
-        "hours": 384,
-        "days": 16,
-        "first": "2022-01-10 23:00:00",
-        "last": "2022-10-13 21:00:00",
-        "missing_demand_mw": 0,
-        "missing_temperature_c": 0,
-        "missing_peninsular_forecast_mw": 384
-      },
-      {
-        "year": 2023,
-        "hours": 384,
-        "days": 16,
-        "first": "2023-01-13 23:00:00",
-        "last": "2023-10-16 21:00:00",
-        "missing_demand_mw": 0,
-        "missing_temperature_c": 0,
-        "missing_peninsular_forecast_mw": 384
-      },
-      {
-        "year": 2024,
-        "hours": 384,
-        "days": 16,
-        "first": "2024-01-09 23:00:00",
-        "last": "2024-10-12 21:00:00",
-        "missing_demand_mw": 0,
-        "missing_temperature_c": 0,
-        "missing_peninsular_forecast_mw": 384
-      },
-      {
-        "year": 2025,
-        "hours": 384,
-        "days": 16,
-        "first": "2025-01-12 23:00:00",
-        "last": "2025-10-15 21:00:00",
-        "missing_demand_mw": 0,
-        "missing_temperature_c": 0,
-        "missing_peninsular_forecast_mw": 0
-      },
-      {
-        "year": 2026,
-        "hours": 384,
-        "days": 16,
-        "first": "2026-01-08 23:00:00",
-        "last": "2026-10-11 21:00:00",
-        "missing_demand_mw": 0,
-        "missing_temperature_c": 0,
-        "missing_peninsular_forecast_mw": 0
-      }
-    ],
-    "duplicate_hours": 0
-  },
-  "sample": {
-    "strategy": "Rotating four-season blocks, not complete years; sampled 2026 evaluation only.",
-    "days_per_season": 4,
-    "requested_days": [
-      "2021-01-08",
-      "2021-01-09",
-      "2021-01-10",
-      "2021-01-11",
-      "2021-04-10",
-      "2021-04-11",
-      "2021-04-12",
-      "2021-04-13",
-      "2021-07-12",
-      "2021-07-13",
-      "2021-07-14",
-      "2021-07-15",
-      "2021-10-14",
-      "2021-10-15",
-      "2021-10-16",
-      "2021-10-17",
-      "2022-01-11",
-      "2022-01-12",
-      "2022-01-13",
-      "2022-01-14",
-      "2022-04-13",
-      "2022-04-14",
-      "2022-04-15",
-      "2022-04-16",
-      "2022-07-08",
-      "2022-07-09",
-      "2022-07-10",
-      "2022-07-11",
-      "2022-10-10",
-      "2022-10-11",
-      "2022-10-12",
-      "2022-10-13",
-      "2023-01-14",
-      "2023-01-15",
-      "2023-01-16",
-      "2023-01-17",
-      "2023-04-09",
-      "2023-04-10",
-      "2023-04-11",
-      "2023-04-12",
-      "2023-07-11",
-      "2023-07-12",
-      "2023-07-13",
-      "2023-07-14",
-      "2023-10-13",
-      "2023-10-14",
-      "2023-10-15",
-      "2023-10-16",
-      "2024-01-10",
-      "2024-01-11",
-      "2024-01-12",
-      "2024-01-13",
-      "2024-04-12",
-      "2024-04-13",
-      "2024-04-14",
-      "2024-04-15",
-      "2024-07-14",
-      "2024-07-15",
-      "2024-07-16",
-      "2024-07-17",
-      "2024-10-09",
-      "2024-10-10",
-      "2024-10-11",
-      "2024-10-12",
-      "2025-01-13",
-      "2025-01-14",
-      "2025-01-15",
-      "2025-01-16",
-      "2025-04-08",
-      "2025-04-09",
-      "2025-04-10",
-      "2025-04-11",
-      "2025-07-10",
-      "2025-07-11",
-      "2025-07-12",
-      "2025-07-13",
-      "2025-10-12",
-      "2025-10-13",
-      "2025-10-14",
-      "2025-10-15",
-      "2026-01-09",
-      "2026-01-10",
-      "2026-01-11",
-      "2026-01-12",
-      "2026-04-11",
-      "2026-04-12",
-      "2026-04-13",
-      "2026-04-14",
-      "2026-07-13",
-      "2026-07-14",
-      "2026-07-15",
-      "2026-07-16",
-      "2026-10-08",
-      "2026-10-09",
-      "2026-10-10",
-      "2026-10-11"
-    ],
-    "days_by_year": {
-      "2021": 16,
-      "2022": 16,
-      "2023": 16,
-      "2024": 16,
-      "2025": 16,
-      "2026": 16
-    },
-    "requested_files": 248,
-    "fetched": 248,
-    "skipped": 0,
-    "failed": []
-  },
-  "alert_threshold_mw": 3857.402722493498,
-  "alert_calibration": "99th percentile of absolute validation residuals; complete hours only",
-  "interpretation": "Contemporaneous weather/calendar estimate, not a day-ahead forecast. Sampled dates do not establish performance over complete years.",
-  "training_seconds": 43.14,
   "features": [
     {
       "feature": "temperature_c",
-      "weight": 0.08091993275499774
+      "weight": 0.10781469966440188
     },
     {
       "feature": "heating_degrees",
-      "weight": 0.03895420114663025
+      "weight": 0.042415375736871756
     },
     {
       "feature": "cooling_degrees",
-      "weight": 0.05676726461077307
+      "weight": 0.04073799047525887
     },
     {
       "feature": "hour_sin",
-      "weight": 0.13191434389052972
+      "weight": 0.16285683336202753
     },
     {
       "feature": "hour_cos",
-      "weight": 0.1326371962777571
+      "weight": 0.14435058764107378
     },
     {
       "feature": "month_sin",
-      "weight": 0.09405480959553397
+      "weight": 0.04289965191345432
     },
     {
       "feature": "month_cos",
-      "weight": 0.07271408230376075
+      "weight": 0.086307468989343
     },
     {
       "feature": "holiday_number",
-      "weight": 0.01119387261852764
+      "weight": 0.032566155240998075
     },
     {
       "feature": "weekend_number",
-      "weight": 0.07860501758428626
-    },
-    {
-      "feature": "local_hour_encoded_0",
-      "weight": 0.0036559830023439473
+      "weight": 0.10447008119808324
     },
     {
       "feature": "local_hour_encoded_1",
-      "weight": 0.0010344512761404862
+      "weight": 0.004991219358697099
     },
     {
       "feature": "local_hour_encoded_10",
-      "weight": 0.0028045957435445714
+      "weight": 4.2466910745322877e-05
     },
     {
       "feature": "local_hour_encoded_11",
-      "weight": 0.0046972793343685836
+      "weight": 1.2848389014407944e-05
     },
     {
       "feature": "local_hour_encoded_12",
-      "weight": 0.00047071685616819443
+      "weight": 0.0006296758277415126
     },
     {
       "feature": "local_hour_encoded_13",
-      "weight": 0.0006684350632441135
+      "weight": 0.001246528062721035
     },
     {
       "feature": "local_hour_encoded_14",
-      "weight": 0.00010017711230923384
+      "weight": 0.0002640709971474125
     },
     {
       "feature": "local_hour_encoded_15",
-      "weight": 6.895175962618586e-05
+      "weight": 0.0009322076165613614
     },
     {
       "feature": "local_hour_encoded_16",
-      "weight": 6.527832422549302e-05
+      "weight": 0.004143100349364936
     },
     {
       "feature": "local_hour_encoded_17",
-      "weight": 0.00011935617923558108
+      "weight": 0.0020100686714001666
     },
     {
       "feature": "local_hour_encoded_18",
-      "weight": 0.0014582438670877002
+      "weight": 9.964215878591624e-05
     },
     {
       "feature": "local_hour_encoded_19",
-      "weight": 0.00028996997962057737
+      "weight": 0.00387660848615865
     },
     {
       "feature": "local_hour_encoded_2",
-      "weight": 0.001873399410144447
+      "weight": 0.0010986581967813293
     },
     {
       "feature": "local_hour_encoded_20",
-      "weight": 0.0024420524946072142
+      "weight": 0.01359009309591635
     },
     {
       "feature": "local_hour_encoded_21",
-      "weight": 0.007628312561372139
+      "weight": 0.006645289383104509
     },
     {
       "feature": "local_hour_encoded_22",
-      "weight": 0.003541488335512611
+      "weight": 0.0064163892179485
     },
     {
       "feature": "local_hour_encoded_23",
-      "weight": 0.0025229849292779777
+      "weight": 0.004485023891418224
     },
     {
       "feature": "local_hour_encoded_3",
-      "weight": 0.004532175372240265
+      "weight": 0.00023566598109061492
     },
     {
       "feature": "local_hour_encoded_4",
-      "weight": 0.005607919714494218
+      "weight": 0.00018858170701019716
     },
     {
       "feature": "local_hour_encoded_5",
-      "weight": 0.0035020293304980697
+      "weight": 0.0
     },
     {
       "feature": "local_hour_encoded_6",
-      "weight": 0.00031722081391625753
+      "weight": 1.863132744405789e-05
     },
     {
       "feature": "local_hour_encoded_7",
-      "weight": 0.003205281426084322
+      "weight": 0.004019791620302731
     },
     {
       "feature": "local_hour_encoded_8",
-      "weight": 0.0008866662669885937
+      "weight": 0.0008369217945637988
     },
     {
       "feature": "local_hour_encoded_9",
-      "weight": 0.0007110265205089154
+      "weight": 0.0003033466088052293
+    },
+    {
+      "feature": "local_hour_encoded_0",
+      "weight": 0.0004625532323853516
     },
     {
       "feature": "local_hour_encoded___unknown",
       "weight": 0.0
     },
     {
-      "feature": "day_of_week_encoded_1",
-      "weight": 0.001460402058059948
-    },
-    {
-      "feature": "day_of_week_encoded_5",
-      "weight": 0.001783518352987693
-    },
-    {
-      "feature": "day_of_week_encoded_6",
-      "weight": 0.011998935122203914
+      "feature": "day_of_week_encoded_2",
+      "weight": 0.0013545495756406996
     },
     {
       "feature": "day_of_week_encoded_3",
-      "weight": 0.0016673233660337314
+      "weight": 0.0022948049220212815
+    },
+    {
+      "feature": "day_of_week_encoded_6",
+      "weight": 0.009511437284315055
     },
     {
       "feature": "day_of_week_encoded_7",
-      "weight": 0.030369116674576088
+      "weight": 0.011623485720642982
     },
     {
-      "feature": "day_of_week_encoded_2",
-      "weight": 0.0014328927280978074
+      "feature": "day_of_week_encoded_5",
+      "weight": 0.005954546503072365
+    },
+    {
+      "feature": "day_of_week_encoded_1",
+      "weight": 0.014898815051206687
     },
     {
       "feature": "day_of_week_encoded_4",
-      "weight": 0.0004753624298255487
+      "weight": 0.001186884735671213
     },
     {
       "feature": "day_of_week_encoded___unknown",
       "weight": 0.0
     },
     {
-      "feature": "month_encoded_1",
-      "weight": 0.04151377727889862
-    },
-    {
       "feature": "month_encoded_10",
-      "weight": 0.037688413539396594
+      "weight": 0.002600175890769761
     },
     {
-      "feature": "month_encoded_4",
-      "weight": 0.04220540493604227
+      "feature": "month_encoded_12",
+      "weight": 0.014456691917454462
+    },
+    {
+      "feature": "month_encoded_5",
+      "weight": 0.005712283486209895
     },
     {
       "feature": "month_encoded_7",
-      "weight": 0.014941956916064548
+      "weight": 0.0069079117445860014
+    },
+    {
+      "feature": "month_encoded_8",
+      "weight": 0.004408571902668406
+    },
+    {
+      "feature": "month_encoded_1",
+      "weight": 0.00247062217855192
+    },
+    {
+      "feature": "month_encoded_3",
+      "weight": 0.009416835954451735
+    },
+    {
+      "feature": "month_encoded_11",
+      "weight": 0.004085313419320523
+    },
+    {
+      "feature": "month_encoded_6",
+      "weight": 0.009325853203249124
+    },
+    {
+      "feature": "month_encoded_9",
+      "weight": 0.010488995114794328
+    },
+    {
+      "feature": "month_encoded_4",
+      "weight": 0.0014067671810012823
+    },
+    {
+      "feature": "month_encoded_2",
+      "weight": 0.003498213691496194
     },
     {
       "feature": "month_encoded___unknown",
@@ -451,199 +222,468 @@
     },
     {
       "feature": "working_hour_encoded_0",
-      "weight": 0.003343579983709492
+      "weight": 0.007246154301612902
     },
     {
       "feature": "working_hour_encoded_1",
-      "weight": 0.00036480941264362154
+      "weight": 0.00017158484034909675
     },
     {
       "feature": "working_hour_encoded_10",
-      "weight": 0.003484170339694254
+      "weight": 0.0005654851952756267
     },
     {
       "feature": "working_hour_encoded_11",
-      "weight": 0.0019515678670376832
+      "weight": 0.0004539742304216791
     },
     {
       "feature": "working_hour_encoded_12",
-      "weight": 0.00048734276027532705
+      "weight": 0.0008934591271908308
     },
     {
       "feature": "working_hour_encoded_13",
-      "weight": 0.0005471314429039922
+      "weight": 0.001062388063478814
     },
     {
       "feature": "working_hour_encoded_14",
-      "weight": 7.607430744509664e-06
+      "weight": 0.0005624929464193511
     },
     {
       "feature": "working_hour_encoded_15",
-      "weight": 6.182674056410812e-06
+      "weight": 0.0002626665853135431
     },
     {
       "feature": "working_hour_encoded_16",
-      "weight": 2.1160762679496063e-05
+      "weight": 7.750128108073329e-05
     },
     {
       "feature": "working_hour_encoded_17",
-      "weight": 9.354343849821894e-06
+      "weight": 7.036100309177243e-05
     },
     {
       "feature": "working_hour_encoded_18",
-      "weight": 0.0
+      "weight": 9.90349819528896e-05
     },
     {
       "feature": "working_hour_encoded_19",
-      "weight": 0.002934637228391345
+      "weight": 9.503466807003629e-05
     },
     {
       "feature": "working_hour_encoded_2",
-      "weight": 0.0016166360326635865
+      "weight": 0.0007297573925667568
     },
     {
       "feature": "working_hour_encoded_20",
-      "weight": 0.009800816295674473
+      "weight": 0.001335913230249406
     },
     {
       "feature": "working_hour_encoded_21",
-      "weight": 0.0048454800558211586
+      "weight": 0.000717285017831391
     },
     {
       "feature": "working_hour_encoded_22",
-      "weight": 0.0016855893331778114
+      "weight": 0.005853821214287562
     },
     {
       "feature": "working_hour_encoded_23",
-      "weight": 0.0025301727040324146
+      "weight": 0.0009621372522094762
     },
     {
       "feature": "working_hour_encoded_3",
-      "weight": 0.0030841447391408306
+      "weight": 9.731260713214838e-05
     },
     {
       "feature": "working_hour_encoded_4",
-      "weight": 0.0049849239977564274
+      "weight": 1.528046013293542e-05
     },
     {
       "feature": "working_hour_encoded_5",
-      "weight": 0.0002548476955851607
+      "weight": 0.0015245012110975005
     },
     {
       "feature": "working_hour_encoded_6",
-      "weight": 0.0005644204916843183
+      "weight": 0.007854530297743507
     },
     {
       "feature": "working_hour_encoded_7",
-      "weight": 0.003105902936296554
+      "weight": 0.008691676199715668
     },
     {
       "feature": "working_hour_encoded_8",
-      "weight": 0.002166768181584725
+      "weight": 0.0019625510333289506
     },
     {
       "feature": "working_hour_encoded_9",
-      "weight": 0.006455567651339833
-    },
-    {
-      "feature": "working_hour_encoded_24",
-      "weight": 0.0007012632943693348
+      "weight": 0.0020911552836593798
     },
     {
       "feature": "working_hour_encoded_25",
-      "weight": 0.00019298128335325492
+      "weight": 0.0008725231692014714
     },
     {
       "feature": "working_hour_encoded_26",
-      "weight": 0.00012990046330669088
+      "weight": 2.348517040059728e-05
     },
     {
       "feature": "working_hour_encoded_27",
-      "weight": 0.0004590831604969721
+      "weight": 0.0001630680576669564
     },
     {
       "feature": "working_hour_encoded_28",
-      "weight": 0.00011790209260489768
+      "weight": 0.0008476668368852616
     },
     {
       "feature": "working_hour_encoded_29",
-      "weight": 0.00017955035504167583
+      "weight": 0.0009476754589434612
     },
     {
       "feature": "working_hour_encoded_30",
-      "weight": 9.682608816657214e-05
+      "weight": 9.740043307297781e-05
     },
     {
       "feature": "working_hour_encoded_31",
-      "weight": 0.001387159777420733
+      "weight": 0.0005186233652045158
     },
     {
       "feature": "working_hour_encoded_32",
-      "weight": 0.0005925714804822243
+      "weight": 0.0009853045960526814
     },
     {
       "feature": "working_hour_encoded_33",
-      "weight": 0.0010279555243762816
+      "weight": 0.002252234341776213
     },
     {
       "feature": "working_hour_encoded_34",
-      "weight": 0.0013382430509336243
+      "weight": 0.00036923729054560907
     },
     {
       "feature": "working_hour_encoded_35",
-      "weight": 0.0002636930604170826
+      "weight": 0.00016355595640240957
     },
     {
       "feature": "working_hour_encoded_36",
-      "weight": 0.00027074553336764646
+      "weight": 0.0007889431864459541
     },
     {
       "feature": "working_hour_encoded_37",
-      "weight": 7.343668391532474e-05
+      "weight": 0.0008024589767349601
     },
     {
       "feature": "working_hour_encoded_38",
-      "weight": 4.712140844719535e-05
+      "weight": 0.00024620159417742285
     },
     {
       "feature": "working_hour_encoded_39",
-      "weight": 0.0004475534169577299
+      "weight": 0.0003329554023867303
     },
     {
       "feature": "working_hour_encoded_40",
-      "weight": 0.00025680416719398415
+      "weight": 8.596280638336603e-05
     },
     {
       "feature": "working_hour_encoded_41",
-      "weight": 0.00023678925633456542
+      "weight": 0.00019676312584721917
     },
     {
       "feature": "working_hour_encoded_42",
-      "weight": 0.0002493637792375526
+      "weight": 0.00018523985009118472
     },
     {
       "feature": "working_hour_encoded_43",
-      "weight": 0.00018675094918081084
+      "weight": 0.00031634373752910746
     },
     {
       "feature": "working_hour_encoded_44",
-      "weight": 0.00044679249891314214
+      "weight": 0.0008912254650109749
     },
     {
       "feature": "working_hour_encoded_45",
-      "weight": 0.0008956600225360913
+      "weight": 0.0008223538339704718
     },
     {
       "feature": "working_hour_encoded_46",
-      "weight": 0.00038079009655507236
+      "weight": 0.0014261471282962827
     },
     {
       "feature": "working_hour_encoded_47",
-      "weight": 0.0002664283371046527
+      "weight": 0.0004936192399729649
+    },
+    {
+      "feature": "working_hour_encoded_24",
+      "weight": 0.00020396596904456976
     },
     {
       "feature": "working_hour_encoded___unknown",
       "weight": 0.0
     }
-  ]
+  ],
+  "trained_at": "2026-11-24T17:26:09.284906+00:00",
+  "selected": {
+    "model": "gbt",
+    "parameters": {
+      "maxIter": 120,
+      "maxDepth": 6
+    }
+  },
+  "candidates": [
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 0.1,
+        "elasticNetParam": 0.0
+      },
+      "mae": 1477.7862203022978,
+      "rmse": 1891.8318363205465,
+      "r2": 0.8153183787594074,
+      "bias": 359.3992142158371
+    },
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 0.1,
+        "elasticNetParam": 0.5
+      },
+      "mae": 1477.873575593265,
+      "rmse": 1892.002885038334,
+      "r2": 0.8152849815176655,
+      "bias": 359.53795403535975
+    },
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 1.0,
+        "elasticNetParam": 0.0
+      },
+      "mae": 1477.596642442356,
+      "rmse": 1891.642751641523,
+      "r2": 0.8153552940066184,
+      "bias": 359.268365575828
+    },
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 1.0,
+        "elasticNetParam": 0.5
+      },
+      "mae": 1475.1388415767422,
+      "rmse": 1888.74183843803,
+      "r2": 0.8159211805126996,
+      "bias": 358.20076214568275
+    },
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 10.0,
+        "elasticNetParam": 0.0
+      },
+      "mae": 1476.21434508678,
+      "rmse": 1890.3160006730102,
+      "r2": 0.8156142135428055,
+      "bias": 358.2020556780381
+    },
+    {
+      "model": "linear",
+      "parameters": {
+        "regParam": 10.0,
+        "elasticNetParam": 0.5
+      },
+      "mae": 1475.61476888449,
+      "rmse": 1892.7172723079434,
+      "r2": 0.8151454648485493,
+      "bias": 355.66152041043676
+    },
+    {
+      "model": "random_forest",
+      "parameters": {
+        "numTrees": 60,
+        "maxDepth": 8
+      },
+      "mae": 1350.498377674248,
+      "rmse": 1732.9345311044176,
+      "r2": 0.8450388143746521,
+      "bias": 260.14528793036516
+    },
+    {
+      "model": "random_forest",
+      "parameters": {
+        "numTrees": 60,
+        "maxDepth": 12
+      },
+      "mae": 1130.664186794619,
+      "rmse": 1502.7029398707664,
+      "r2": 0.8834788153873393,
+      "bias": 211.90224923494586
+    },
+    {
+      "model": "gbt",
+      "parameters": {
+        "maxIter": 60,
+        "maxDepth": 4
+      },
+      "mae": 1197.0508459453665,
+      "rmse": 1588.6568470935724,
+      "r2": 0.8697676681156955,
+      "bias": 220.91868072071796
+    },
+    {
+      "model": "gbt",
+      "parameters": {
+        "maxIter": 60,
+        "maxDepth": 6
+      },
+      "mae": 1121.2008120168382,
+      "rmse": 1512.0156244471018,
+      "r2": 0.8820301092902456,
+      "bias": 184.93049957343567
+    },
+    {
+      "model": "gbt",
+      "parameters": {
+        "maxIter": 120,
+        "maxDepth": 4
+      },
+      "mae": 1122.4552184589772,
+      "rmse": 1509.8554972406866,
+      "r2": 0.8823669417092983,
+      "bias": 196.77790564544026
+    },
+    {
+      "model": "gbt",
+      "parameters": {
+        "maxIter": 120,
+        "maxDepth": 6
+      },
+      "mae": 1083.93130437921,
+      "rmse": 1486.4516867190246,
+      "r2": 0.8859854662975601,
+      "bias": 163.71870408810835
+    }
+  ],
+  "evaluation": {
+    "validation": {
+      "model": {
+        "mae": 1083.93130437921,
+        "rmse": 1486.4516867190246,
+        "r2": 0.8859854662975601,
+        "bias": 163.71870408810835
+      },
+      "ree": {
+        "mae": 256.00093740434653,
+        "rmse": 359.69460594806367,
+        "r2": 0.9933238441053736,
+        "bias": -0.5200872359963323
+      },
+      "same_hour_yesterday": {
+        "mae": 1802.8286558769519,
+        "rmse": 2687.4297157382184,
+        "r2": 0.6273227783795016,
+        "bias": 2.0894647229874406
+      },
+      "hours": 8712
+    },
+    "test": {
+      "model": {
+        "mae": 2472.5135807357083,
+        "rmse": 3090.9601368088133,
+        "r2": 0.6643591793654346,
+        "bias": 2365.276841161078
+      },
+      "ree": {
+        "mae": 262.3804047740401,
+        "rmse": 360.3057795209033,
+        "r2": 0.9954393113679644,
+        "bias": -8.63758282364934
+      },
+      "same_hour_yesterday": {
+        "mae": 1861.528255606524,
+        "rmse": 2785.6800152604883,
+        "r2": 0.7273845763716482,
+        "bias": 7.539213812436278
+      },
+      "hours": 7848
+    }
+  },
+  "split_hours": {
+    "train": 35063,
+    "validation": 8712,
+    "test": 7848
+  },
+  "refit": {
+    "years": "2021-2025",
+    "hours": 43799
+  },
+  "audit": {
+    "by_year": [
+      {
+        "year": 2021,
+        "hours": 8760,
+        "days": 365,
+        "first": "2021-01-01 00:00:00",
+        "last": "2021-12-31 23:00:00",
+        "missing_demand_mw": 0,
+        "missing_temperature_c": 1,
+        "missing_peninsular_forecast_mw": 0
+      },
+      {
+        "year": 2022,
+        "hours": 8760,
+        "days": 365,
+        "first": "2022-01-01 00:00:00",
+        "last": "2022-12-31 23:00:00",
+        "missing_demand_mw": 0,
+        "missing_temperature_c": 0,
+        "missing_peninsular_forecast_mw": 0
+      },
+      {
+        "year": 2023,
+        "hours": 8760,
+        "days": 365,
+        "first": "2023-01-01 00:00:00",
+        "last": "2023-12-31 23:00:00",
+        "missing_demand_mw": 0,
+        "missing_temperature_c": 0,
+        "missing_peninsular_forecast_mw": 0
+      },
+      {
+        "year": 2024,
+        "hours": 8784,
+        "days": 366,
+        "first": "2024-01-01 00:00:00",
+        "last": "2024-12-31 23:00:00",
+        "missing_demand_mw": 0,
+        "missing_temperature_c": 0,
+        "missing_peninsular_forecast_mw": 0
+      },
+      {
+        "year": 2025,
+        "hours": 8760,
+        "days": 365,
+        "first": "2025-01-01 00:00:00",
+        "last": "2025-12-31 23:00:00",
+        "missing_demand_mw": 0,
+        "missing_temperature_c": 0,
+        "missing_peninsular_forecast_mw": 0
+      },
+      {
+        "year": 2026,
+        "hours": 7848,
+        "days": 327,
+        "first": "2026-01-01 00:00:00",
+        "last": "2026-11-23 23:00:00",
+        "missing_demand_mw": 0,
+        "missing_temperature_c": 0,
+        "missing_peninsular_forecast_mw": 0
+      }
+    ],
+    "duplicate_hours": 0
+  },
+  "sample": null,
+  "alert_threshold_mw": 4549.217707710435,
+  "alert_calibration": "99th percentile of absolute 2025 residuals, model fitted on 2021-2024",
+  "alert_rate": {
+    "validation": 0.009986225895316805,
+    "test": 0.1532874617737003
+  },
+  "interpretation": "Contemporaneous weather/calendar estimate, not a day-ahead forecast. Fitted on every complete hour of 2021-2024, selected on 2025, refit on 2021-2025 and evaluated once on 2026.",
+  "training_seconds": 225.23
 }

@@ -3,9 +3,9 @@
   "baseline": "spot_price_eur_mwh_24h_ago",
   "unit": "EUR/MWh",
   "selected": {
-    "model": "linear",
+    "model": "random_forest",
     "parameters": {
-      "regParam": 0.1
+      "maxDepth": 7
     }
   },
   "candidates": [
@@ -14,168 +14,168 @@
       "parameters": {
         "regParam": 0.1
       },
-      "mae": 21.47870814087888,
-      "rmse": 27.839992202016724,
-      "r2": 0.7192540873865538
+      "mae": 25.444283950678223,
+      "rmse": 31.870983828374758,
+      "r2": 0.5517341746354343
     },
     {
       "model": "linear",
       "parameters": {
         "regParam": 10.0
       },
-      "mae": 22.147297284346465,
-      "rmse": 28.240664303751718,
-      "r2": 0.7111149680411645
+      "mae": 26.88203217314364,
+      "rmse": 33.71204788990118,
+      "r2": 0.49844916113274296
     },
     {
       "model": "random_forest",
       "parameters": {
         "maxDepth": 4
       },
-      "mae": 33.98318749597994,
-      "rmse": 40.124129163402614,
-      "r2": 0.41684169759085254
+      "mae": 30.18785441918824,
+      "rmse": 36.81090896964065,
+      "r2": 0.4020046955002271
     },
     {
       "model": "random_forest",
       "parameters": {
         "maxDepth": 7
       },
-      "mae": 32.327660702876884,
-      "rmse": 38.07295033465627,
-      "r2": 0.47494078116840066
+      "mae": 25.396941685194314,
+      "rmse": 30.609087515582623,
+      "r2": 0.5865286168573668
     }
   ],
   "validation_baseline": {
-    "mae": 13.383532986111113,
-    "rmse": 21.376892844329635,
-    "r2": 0.8344746998693682
+    "mae": 19.923367101648356,
+    "rmse": 28.848085249737483,
+    "r2": 0.632735732513364
   },
   "test": {
     "model": {
-      "mae": 28.75633297265821,
-      "rmse": 34.31378804135176,
-      "r2": 0.7303806495385801
+      "mae": 39.610545361097614,
+      "rmse": 50.781795361289134,
+      "r2": 0.5730427725963905
     },
     "baseline": {
-      "mae": 15.492847222222224,
-      "rmse": 21.382788444603445,
-      "r2": 0.8953010303121941
+      "mae": 22.66428102701325,
+      "rmse": 36.83599443713217,
+      "r2": 0.7753465642425519
     },
-    "hours": 288
+    "hours": 7848
   },
   "features": [
     {
       "feature": "gas_price_eur_mwh",
-      "weight": 31.79134377751913
+      "weight": 0.5908608351019934
     },
     {
       "feature": "renewable_share",
-      "weight": -43.45125786383494
+      "weight": 0.25337933628563414
     },
     {
       "feature": "demand_mw",
-      "weight": 7.4958029432584015
+      "weight": 0.057445019604832843
     },
     {
       "feature": "iberian_exception_number",
-      "weight": -14.722721105129539
+      "weight": 0.07958097907526496
     },
     {
       "feature": "local_hour_encoded_0",
-      "weight": -1.0839525933350591
+      "weight": 0.0002358580422468491
     },
     {
       "feature": "local_hour_encoded_1",
-      "weight": -3.102100865039171
+      "weight": 1.1724088602528114e-05
     },
     {
       "feature": "local_hour_encoded_10",
-      "weight": 2.6768627689566196
+      "weight": 0.0001403748147246223
     },
     {
       "feature": "local_hour_encoded_11",
-      "weight": 2.7298791229409103
+      "weight": 3.4443040305878225e-05
     },
     {
       "feature": "local_hour_encoded_12",
-      "weight": 2.7905739033183288
+      "weight": 0.0002938690942026268
     },
     {
       "feature": "local_hour_encoded_13",
-      "weight": 2.333912837411917
+      "weight": 0.0017936989804041188
     },
     {
       "feature": "local_hour_encoded_14",
-      "weight": 1.8524168502162917
+      "weight": 0.0018966479219679735
     },
     {
       "feature": "local_hour_encoded_15",
-      "weight": 1.6894125305932786
+      "weight": 0.001445009040167805
     },
     {
       "feature": "local_hour_encoded_16",
-      "weight": 1.6067977793779975
+      "weight": 0.00025369497144400656
     },
     {
       "feature": "local_hour_encoded_17",
-      "weight": 2.606115316003079
+      "weight": 4.5563902197251285e-05
     },
     {
       "feature": "local_hour_encoded_18",
-      "weight": 3.336647841633058
+      "weight": 0.00011813776587236837
     },
     {
       "feature": "local_hour_encoded_19",
-      "weight": 4.108511439773004
+      "weight": 0.0009336865871554263
     },
     {
       "feature": "local_hour_encoded_2",
-      "weight": -4.726694283158448
+      "weight": 0.0003434151261408644
     },
     {
       "feature": "local_hour_encoded_20",
-      "weight": 3.7215423738924374
+      "weight": 0.0027600488820686605
     },
     {
       "feature": "local_hour_encoded_21",
-      "weight": 2.351808229896426
+      "weight": 0.004410450821008282
     },
     {
       "feature": "local_hour_encoded_22",
-      "weight": 1.2032507435809963
+      "weight": 0.0016929254886845382
     },
     {
       "feature": "local_hour_encoded_23",
-      "weight": -0.6095720312178414
+      "weight": 0.00018504548494239147
     },
     {
       "feature": "local_hour_encoded_3",
-      "weight": -5.865702410132851
+      "weight": 0.00048110357882463235
     },
     {
       "feature": "local_hour_encoded_4",
-      "weight": -6.486842676050727
+      "weight": 0.0007933554507268014
     },
     {
       "feature": "local_hour_encoded_5",
-      "weight": -6.089755100546177
+      "weight": 0.0002619404185620284
     },
     {
       "feature": "local_hour_encoded_6",
-      "weight": -4.765745278824307
+      "weight": 7.236501186838128e-05
     },
     {
       "feature": "local_hour_encoded_7",
-      "weight": -2.4880348119745053
+      "weight": 0.00028975946501659023
     },
     {
       "feature": "local_hour_encoded_8",
-      "weight": 0.4181979850085313
+      "weight": 0.00022664088825318635
     },
     {
       "feature": "local_hour_encoded_9",
-      "weight": 1.7924703273504308
+      "weight": 1.4071066886912607e-05
     },
     {
       "feature": "local_hour_encoded___unknown",
@@ -183,12 +183,12 @@
     }
   ],
   "rows": {
-    "train": 1536,
-    "validation": 288,
-    "test": 288
+    "train": 35040,
+    "validation": 8736,
+    "test": 7848
   },
-  "weight_kind": "standardized coefficient",
-  "trained_at": "2026-11-24T16:28:05.509284+00:00",
-  "training_seconds": 49.42,
+  "weight_kind": "tree importance",
+  "trained_at": "2026-11-24T17:11:18.486307+00:00",
+  "training_seconds": 12.65,
   "interpretation": "Contemporaneous explanatory estimate, not a day-ahead forecast. Baseline is exact UTC t-24h persistence. Results cover available complete hours."
 }

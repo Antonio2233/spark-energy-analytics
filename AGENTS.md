@@ -16,7 +16,7 @@ Final project for the Big Data course (UMA Master's). Red Eléctrica (REE) data 
 2. `docs/plan.md`: questions, sources, models, streaming, schedule and risks.
 3. `README.md`: getting started, how the pieces fit, and layout.
 4. `docs/01-how-it-works.md`: what every script does, the datasets it writes, the streaming job and the UI tabs.
-5. `docs/02-demand-model.md`: small seasonal sample, trained demand model, baseline evaluation and hourly monitoring.
+5. `docs/02-demand-model.md`: full-history demand model, evaluation against two baselines and hourly monitoring.
 6. `docs/03-energy-desk.md`: live-first market dashboard, source-period alignment and replay/live distinctions.
 7. `docs/04-phase-2-models.md`: remaining regressions, temporal evaluation, day types and notebook.
 8. `README_MAC.md`: native macOS installation, preparation and dashboard launch.
@@ -82,7 +82,7 @@ Checked on 2026-11-03, 2026-11-10 and 2026-11-12 with real downloads. Anything n
   - To document before use: `bio`, `gf`, `aut`, `icb`, `conb`, `turb`, `gnhd`, `bat`, `consBat`, `dif`, `vap`.
 - **History:** same format since at least 2012 (checked on days in 2012, 2013, 2014, 2015 and 2021). A day in 2010 returns an empty list.
 - **Real time:** on 2026-11-03 the day's data stopped at 10:45 (queried at 19:18 and 19:24); on 2026-11-10 it worked (17:50 data at 17:58).
-- **Peninsular forecast:** `https://demanda.ree.es/WSvisionaMovilesPeninsulaRest/resources/prevProgPeninsula?callback=cb&curva=DEMANDAAU&fecha=YYYY-MM-DD`, the endpoint REE's own viewer calls (found in its `curvas_demanda.min.js`). Same JSONP format and 30-hour window, `cb({"valoresPrevistaProgramada": [...]})` with 361 records of `ts`, `pre` (forecast) and `pro` (scheduled). Checked on 2025-01-15 and 2021-03-15 (2026-11-12). The demand extension downloads sampled 2025/2026 evaluation days with `sources/ree_forecast.py`.
+- **Peninsular forecast:** `https://demanda.ree.es/WSvisionaMovilesPeninsulaRest/resources/prevProgPeninsula?callback=cb&curva=DEMANDAAU&fecha=YYYY-MM-DD`, the endpoint REE's own viewer calls (found in its `curvas_demanda.min.js`). Same JSONP format and 30-hour window, `cb({"valoresPrevistaProgramada": [...]})` with 361 records of `ts`, `pre` (forecast) and `pro` (scheduled). Checked on 2025-01-15 and 2021-03-15 (2026-11-12). `sources/ree_forecast.py` downloads it as a default source of `download_history.py`: 2,153 days for 2021-01-01 to 2026-11-23, 620,064 readings after ingestion (2026-11-24).
 
 ### REE · REData API (`apidatos.ree.es`)
 
