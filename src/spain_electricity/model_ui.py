@@ -34,7 +34,9 @@ def _render_demand(spark: SparkSession, paths: DataPaths, theme: charts.ChartThe
     """Show sample coverage, model selection and chronological holdout results."""
     metadata = models.load_metadata(paths)
     if metadata is None:
-        st.info("No trained demand model yet. Prepare the demand sample, then run scripts/train_demand.py.")
+        st.info(
+            "No trained demand model yet. Download and ingest the history, then run scripts/train_demand.py."
+        )
         return
     st.subheader("Hourly peninsular demand")
     st.caption(metadata["interpretation"])
@@ -48,16 +50,20 @@ def _render_demand(spark: SparkSession, paths: DataPaths, theme: charts.ChartThe
         f"Training and evaluation: **{metadata['training_seconds']:.1f} s**"
     )
     st.caption(
-        "Fit 2021–2024 → select parameters on 2025 MAE → evaluate the winner once on 2026. "
-        "The 28 April 2025 blackout is excluded. Model and REE metrics use identical hours."
+        "Fit 2021–2024 → select parameters on 2025 MAE → refit the winner on 2021–2025 → evaluate it "
+        "once on 2026. The 28 April 2025 blackout is excluded. The model and both baselines (REE's "
+        "peninsular forecast and the same hour the day before) use identical hours."
     )
     records = []
     for split, result in metadata["evaluation"].items():
-        for source in ("model", "ree"):
-            records.append({"split": split, "source": source, "hours": result["hours"], **result[source]})
+        # Older metrics files have no same-hour-yesterday baseline: show the sources each file has.
+        for source in ("model", *models.BASELINES):
+            if source in result:
+                records.append({"split": split, "source": source, "hours": result["hours"], **result[source]})
     st.dataframe(pd.DataFrame(records).round(3), hide_index=True, width="stretch")
     st.caption(
-        "MAE and RMSE are in MW; lower is better. R² can be negative. "
+        "MAE, RMSE and bias (actual minus estimate) are in MW; lower MAE and RMSE are better. "
+        "R² can be negative. "
         "The model and REE have different information sets; this compares their errors, "
         "not equally informed day-ahead forecasts."
     )
@@ -73,7 +79,7 @@ def _render_demand(spark: SparkSession, paths: DataPaths, theme: charts.ChartThe
         st.info("No saved evaluation predictions.")
         return
     months = pd.to_datetime(predictions.hour_utc).dt.strftime("%Y-%m")
-    month = st.selectbox("Sampled evaluation month", sorted(months.unique()), index=len(months.unique()) - 1)
+    month = st.selectbox("Evaluation month", sorted(months.unique()), index=len(months.unique()) - 1)
     st.altair_chart(_comparison(predictions[months == month], "demand_mw", theme, True), width="stretch")
     st.caption(
         "Observed: REE generation feed. Baseline: pre from prevProgPeninsula. "
@@ -88,6 +94,12 @@ def _render_demand(spark: SparkSession, paths: DataPaths, theme: charts.ChartThe
         f"Monitoring threshold: **{metadata['alert_threshold_mw']:,.0f} MW** — "
         "99th percentile of absolute validation residuals. This screening rule is not a confidence interval."
     )
+    if metadata.get("alert_rate"):
+        rates = metadata["alert_rate"]
+        st.caption(
+            f"Hours over the threshold: {rates['validation']:.1%} in validation (2025), "
+            f"{rates['test']:.1%} in test (2026)."
+        )
 
 
 def render_models(spark: SparkSession, paths: DataPaths, theme: charts.ChartTheme) -> None:

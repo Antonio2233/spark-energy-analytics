@@ -13,7 +13,9 @@ pytestmark = pytest.mark.integration
 def test_bundled_model_reproduces_saved_predictions_without_fitting(spark):
     root = REPO_ROOT / "data"
     model = PipelineModel.load(str(root / "models/demand/pipeline"))
-    saved = spark.read.parquet(str(root / "models/demand/predictions"))
+    # Only test predictions come from the saved model: validation ones are from the model fitted on
+    # 2021-2024, before the winner was refit on 2021-2025.
+    saved = spark.read.parquet(str(root / "models/demand/predictions")).where(F.col("split") == "test")
     saved = saved.withColumn("day_of_week", (F.dayofweek("local_date") + 5) % 7 + 1)
     actual = model.transform(add_model_features(saved))
     result = actual.agg(

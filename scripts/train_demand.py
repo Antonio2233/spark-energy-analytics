@@ -11,7 +11,7 @@ def main() -> None:
     """Train on the ingested data and report the measured results."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     try:
-        result = train_demand(get_spark("demand-training", "local[2]", 4), DataPaths.from_env())
+        result = train_demand(get_spark("demand-training", "local[*]", 12), DataPaths.from_env())
         logging.info(
             "Selected %s; held-out results: %s; %.1f seconds",
             result["selected"],

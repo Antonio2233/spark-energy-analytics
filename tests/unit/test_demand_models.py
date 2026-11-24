@@ -68,3 +68,33 @@ def test_real_forecast_fixture_keeps_scheduled_demand(spark, fixtures_dir):
     rows = ree_forecast.read_raw(spark, fixtures_dir / "ree_forecast").collect()
     assert rows
     assert any(row.peninsular_scheduled_mw is not None for row in rows)
+
+
+def test_naive_baseline_is_the_same_hour_the_day_before(spark):
+    df = spark.createDataFrame(
+        [
+            (datetime(2025, 1, 1, 10), 100.0),
+            (datetime(2025, 1, 2, 10), 200.0),
+            (datetime(2025, 1, 2, 11), 300.0),
+        ],
+        "hour_utc timestamp, demand_mw double",
+    )
+    rows = models.add_naive_baseline(df).orderBy("hour_utc").collect()
+    assert [row[models.NAIVE] for row in rows] == [None, 100.0, None]
+
+
+def test_candidate_grid_loops_param_grids_for_three_families():
+    grid = models.candidate_grid()
+    assert [kind for kind, _, _ in grid] == ["linear", "random_forest", "gbt"]
+    assert [len(param_maps) for _, _, param_maps in grid] == [6, 2, 4]
+    for _, pipeline, param_maps in grid:
+        estimator = pipeline.getStages()[-1]
+        assert all(param.parent == estimator.uid for params in param_maps for param in params)
+
+
+def test_paired_rows_can_require_every_baseline(spark):
+    df = spark.createDataFrame(
+        [(1.0, 2.0), (1.0, None), (None, 2.0)], f"{models.BASELINE} double, {models.NAIVE} double"
+    )
+    assert models.paired_rows(df, (models.BASELINE, models.NAIVE)).count() == 1
+    assert models.paired_rows(df).count() == 2
