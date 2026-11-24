@@ -1,6 +1,10 @@
 """The only way to create (and stop) the project's SparkSession."""
 
+import os
+
 from pyspark.sql import SparkSession
+
+from spain_electricity.config import DEFAULT_DRIVER_MEMORY, DRIVER_MEMORY_ENV
 
 LOOPBACK = "127.0.0.1"
 
@@ -18,7 +22,9 @@ def get_spark(
 
     A local session binds the driver to the loopback address. Task results above 1 MiB, broadcasts
     and shuffle blocks are fetched from the block manager's address, and the address Spark picks by
-    default (a LAN or VPN interface) can hang silently behind a firewall in stealth mode.
+    default (a LAN or VPN interface) can hang silently behind a firewall in stealth mode. Its heap is
+    ``SPAIN_ELECTRICITY_DRIVER_MEMORY`` (6 GB by default): Spark's own 1 GB is too small for the
+    full-history training. It applies only when the JVM starts, that is, to the process's first session.
     """
     global _session
     if _session is not None:
@@ -31,7 +37,11 @@ def get_spark(
         .config("spark.ui.showConsoleProgress", "false")
     )
     if master.startswith("local"):
-        builder = builder.config("spark.driver.host", LOOPBACK).config("spark.driver.bindAddress", LOOPBACK)
+        builder = (
+            builder.config("spark.driver.host", LOOPBACK)
+            .config("spark.driver.bindAddress", LOOPBACK)
+            .config("spark.driver.memory", os.environ.get(DRIVER_MEMORY_ENV, DEFAULT_DRIVER_MEMORY))
+        )
     spark = builder.getOrCreate()
     spark.sparkContext.setLogLevel("WARN")
     _session = spark

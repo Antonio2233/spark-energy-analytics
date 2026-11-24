@@ -194,6 +194,7 @@ The Energy Desk adds `desk.py`, `desk_ui.py`, `runtime_ui.py` and `live_runtime.
 - `spain_electricity.spark_session.get_spark` creates the `SparkSession` once per process and returns that same session afterwards, from any thread; `stop_spark()` stops it. Never call `session.stop()` directly, and never build a session with `SparkSession.builder`: Spark's builder rewrites the settings of an existing session.
 - Base configuration: `master("local[*]")`, `spark.sql.session.timeZone=UTC`, a low `spark.sql.shuffle.partitions` locally (for example, 8), and log level `WARN`.
 - **Loopback:** a local session binds the driver to `127.0.0.1`. Task results above 1 MiB, broadcasts and shuffle blocks are fetched from the block manager's address, and the LAN or VPN address Spark picks by default hung silently on a laptop with the firewall in stealth mode (a 3 MB result failed after 96 s; on loopback it took 1.1 s).
+- **Driver memory:** a local session gets `SPAIN_ELECTRICITY_DRIVER_MEMORY` of heap, 6 GB by default (`config.DEFAULT_DRIVER_MEMORY`). Full-history demand training failed with `OutOfMemoryError` on Spark's default 1 GB and finished in 225 s with 6 GB (2026-11-24, 12 cores). It is read only when the JVM starts.
 - PySpark 4.2 (the version used in the labs) with Java 17 or 21. pandas stays below 3: PySpark 4.2.1 warns that it does not fully support pandas 3.
 
 ### Processing

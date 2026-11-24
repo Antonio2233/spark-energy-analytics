@@ -96,7 +96,9 @@ uv run python scripts/download_history.py --start 2021-01-01 --end 2026-11-09
 uv run python scripts/ingest.py
 ```
 
-The default sources now also include the peninsular forecast, adding roughly 2,140 daily requests for 2021?2026. On 2026-11-10 the earlier source set was 2,642 files (about 490 MB): the download took 1 h 14 min with no failures, and the ingest 31 s.
+The default sources now also include the peninsular forecast, adding roughly 2,140 daily requests for 2021–2026. On 2026-11-10 the earlier source set was 2,642 files (about 490 MB): the download took 1 h 14 min with no failures, and the ingest 31 s. On 2026-11-24 the forecast added 2,176 files, downloaded in 44 min with no failures.
+
+Local Spark sessions get a 6 GB driver heap by default, because full-history training ran out of Spark's own 1 GB. Change it with `SPAIN_ELECTRICITY_DRIVER_MEMORY` (for example `SPAIN_ELECTRICITY_DRIVER_MEMORY=4g`); it applies when a process starts its Spark session.
 
 ### 2. Streaming
 
