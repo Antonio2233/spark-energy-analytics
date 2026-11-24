@@ -8,6 +8,12 @@ from spain_electricity.regression_models import PRICE, RENEWABLES, train
 
 pytestmark = pytest.mark.integration
 
+TINY_GRIDS = {
+    "linear": {"regParam": [0.1]},
+    "random_forest": {"numTrees": [8], "maxDepth": [4]},
+    "gbt": {"maxIter": [5], "maxDepth": [3]},
+}
+
 
 def history(spark):
     rows = []
@@ -63,11 +69,15 @@ def test_chronological_models_save_and_reload(spark, paths, spec, monkeypatch):
         return original_fit(self, frame, *args, **kwargs)
 
     monkeypatch.setattr(Pipeline, "fit", observed_fit)
-    report = train(spark, paths, spec)
-    assert fitted_years[:4] == [{2021, 2022, 2023, 2024}] * 4
-    assert fitted_years[4] == {2021, 2022, 2023, 2024, 2025}
+    report = train(spark, paths, spec, grids=TINY_GRIDS)
+    assert fitted_years[:3] == [{2021, 2022, 2023, 2024}] * 3
+    assert fitted_years[3] == {2021, 2022, 2023, 2024, 2025}
     assert report["rows"] == {"train": 384, "validation": 72, "test": 72}
-    assert len(report["candidates"]) == 4
+    # Like demand, the refit uses every valid 2025 hour, not only those with a baseline.
+    assert report["refit"] == {"years": "2021-2025", "hours": 384 + 96}
+    assert [item["model"] for item in report["candidates"]] == ["linear", "random_forest", "gbt"]
+    assert "bias" in report["test"]["model"] and "bias" in report["validation_baseline"]
+    assert not (paths.models / spec.name / "metrics.json.part").exists()
     assert report["selected"]["model"] == min(report["candidates"], key=lambda item: item["mae"])["model"]
     assert report["test"]["hours"] == report["rows"]["test"]
     assert report["features"] and all(item["feature"] for item in report["features"])

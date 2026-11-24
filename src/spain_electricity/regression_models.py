@@ -1,22 +1,22 @@
-"""Small chronological Spark ML experiments for price and renewable-share estimation."""
+"""Price and renewable-share pipelines, searched, refit and evaluated like the demand model."""
 
 import json
 import math
 import time
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from pyspark.ml import Pipeline, PipelineModel
 from pyspark.ml.evaluation import RegressionEvaluator
-from pyspark.ml.feature import OneHotEncoder, StandardScaler, StringIndexer, VectorAssembler
-from pyspark.ml.regression import LinearRegression, RandomForestRegressor
+from pyspark.ml.feature import OneHotEncoder, SQLTransformer, StandardScaler, StringIndexer, VectorAssembler
+from pyspark.ml.regression import GBTRegressor, LinearRegression, RandomForestRegressor
 from pyspark.ml.tuning import ParamGridBuilder
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
-from spain_electricity.config import DataPaths
+from spain_electricity.config import ANOMALY_DATES, DataPaths
 from spain_electricity.features import add_phase2_features
-from spain_electricity.models import SPLITS
+from spain_electricity.models import GRIDS, SPLITS
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,8 @@ class ModelSpec:
     flags: tuple[str, ...]
     baseline: str
     unit: str
+    # Products of a numeric input and a flag, so the flag can change that input's effect.
+    interactions: tuple[tuple[str, str], ...] = ()
 
 
 PRICE = ModelSpec(
@@ -40,11 +42,12 @@ PRICE = ModelSpec(
     ("iberian_exception",),
     "spot_price_eur_mwh_24h_ago",
     "EUR/MWh",
+    (("gas_price_eur_mwh", "iberian_exception"),),
 )
 RENEWABLES = ModelSpec(
     "renewable_share",
     "renewable_share",
-    ("wind_speed_100m_kmh", "shortwave_radiation_wm2"),
+    ("wind_speed_100m_kmh", "shortwave_radiation_wm2", "demand_mw"),
     ("local_hour", "month"),
     (),
     "renewable_share_24h_ago",
@@ -61,64 +64,76 @@ def complete_rows(df: DataFrame, columns: tuple[str, ...]) -> DataFrame:
     return df
 
 
+def paired(df: DataFrame, spec: ModelSpec) -> DataFrame:
+    """Keep hours with a finite baseline whose previous day is not an anomaly, as the demand model does."""
+    excluded = [date.fromisoformat(day) for day in ANOMALY_DATES]
+    return complete_rows(df, (spec.baseline,)).where(~F.date_sub("local_date", 1).isin(excluded))
+
+
 def build_pipeline(spec: ModelSpec, family: str) -> Pipeline:
-    """Fit encoding and scaling inside the training-only pipeline."""
+    """Fit encoding and scaling inside the training-only pipeline, with default estimator parameters."""
     indices = [f"{name}_index" for name in spec.categorical]
     encoded = [f"{name}_encoded" for name in spec.categorical]
     flag_columns = [f"{name}_number" for name in spec.flags]
-    from pyspark.ml.feature import SQLTransformer
-
-    statement = (
-        "SELECT *, "
-        + ", ".join(f"CAST({name} AS DOUBLE) AS {name}_number" for name in spec.flags)
-        + " FROM __THIS__"
+    interaction_columns = [f"{value}_x_{flag}" for value, flag in spec.interactions]
+    derived = [f"CAST({name} AS DOUBLE) AS {name}_number" for name in spec.flags] + [
+        f"{value} * CAST({flag} AS DOUBLE) AS {value}_x_{flag}" for value, flag in spec.interactions
+    ]
+    stages = (
+        [SQLTransformer(statement="SELECT *, " + ", ".join(derived) + " FROM __THIS__")] if derived else []
     )
-    stages = [SQLTransformer(statement=statement)] if spec.flags else []
     stages += [
         StringIndexer(inputCol=name, outputCol=index, handleInvalid="keep")
         for name, index in zip(spec.categorical, indices, strict=True)
     ]
     stages += [
         OneHotEncoder(inputCols=indices, outputCols=encoded, handleInvalid="keep"),
-        VectorAssembler(inputCols=[*spec.numeric, *flag_columns, *encoded], outputCol="features_raw"),
+        VectorAssembler(
+            inputCols=[*spec.numeric, *flag_columns, *interaction_columns, *encoded], outputCol="features_raw"
+        ),
     ]
     if family == "linear":
         stages += [
             StandardScaler(inputCol="features_raw", outputCol="features", withMean=False),
-            LinearRegression(labelCol=spec.label, maxIter=60),
+            LinearRegression(labelCol=spec.label, maxIter=100),
         ]
     elif family == "random_forest":
         stages += [
             RandomForestRegressor(
-                labelCol=spec.label,
-                featuresCol="features_raw",
-                numTrees=24,
-                maxDepth=6,
-                minInstancesPerNode=2,
-                seed=42,
+                labelCol=spec.label, featuresCol="features_raw", minInstancesPerNode=2, seed=42
             )
+        ]
+    elif family == "gbt":
+        stages += [
+            GBTRegressor(labelCol=spec.label, featuresCol="features_raw", minInstancesPerNode=2, seed=42)
         ]
     else:
         raise ValueError(f"Unknown model family: {family}")
     return Pipeline(stages=stages)
 
 
-def parameter_grid(pipeline: Pipeline, family: str) -> list:
-    """Keep the search small, with every point evaluated on the temporal validation set."""
-    estimator = pipeline.getStages()[-1]
-    if family == "linear":
-        return ParamGridBuilder().addGrid(estimator.regParam, [0.1, 10.0]).build()
-    return ParamGridBuilder().addGrid(estimator.maxDepth, [4, 7]).build()
+def candidate_grid(spec: ModelSpec, grids: dict[str, dict[str, list]] | None = None) -> list[tuple]:
+    """Return, per family, its pipeline and the ``ParamGridBuilder`` maps to loop by hand (demand's grid)."""
+    candidates = []
+    for family, values in (grids or GRIDS).items():
+        pipeline = build_pipeline(spec, family)
+        estimator = pipeline.getStages()[-1]
+        builder = ParamGridBuilder()
+        for name, options in values.items():
+            builder.addGrid(estimator.getParam(name), options)
+        candidates.append((family, pipeline, builder.build()))
+    return candidates
 
 
 def evaluate(df: DataFrame, label: str, prediction: str) -> dict:
-    """Measure regression quality on a preselected paired set of hours."""
+    """Measure MAE, RMSE, R² and bias (actual minus estimate) on a preselected paired set of hours."""
     values = {
         metric: float(
             RegressionEvaluator(labelCol=label, predictionCol=prediction, metricName=metric).evaluate(df)
         )
         for metric in ("mae", "rmse", "r2")
     }
+    values["bias"] = float(df.select(F.avg(F.col(label) - F.col(prediction))).first()[0])
     return {key: value if math.isfinite(value) else None for key, value in values.items()}
 
 
@@ -134,31 +149,36 @@ def feature_weights(model: PipelineModel, transformed: DataFrame, vector: str) -
     ]
 
 
-def train(spark: SparkSession, paths: DataPaths, spec: ModelSpec) -> dict:
-    """Choose on 2025, refit on train plus validation, and evaluate once on paired 2026 hours."""
+def train(
+    spark: SparkSession, paths: DataPaths, spec: ModelSpec, grids: dict[str, dict[str, list]] | None = None
+) -> dict:
+    """Choose on 2025, refit on every valid 2021-2025 hour, and evaluate once on paired 2026 hours."""
     started = time.perf_counter()
     hourly = add_phase2_features(spark.read.parquet(str(paths.processed / "hourly_features")))
     if hourly.groupBy("hour_utc").count().where("count > 1").limit(1).count():
         raise ValueError("Duplicate hourly keys; fix ingestion before training")
     required = (spec.label, *spec.numeric, *spec.categorical, *spec.flags)
     valid = complete_rows(hourly.where(~F.col("is_anomaly")), required)
-    frames = {
+    years = {
         name: valid.where(F.year("local_date").between(first, last)) for name, (first, last) in SPLITS.items()
     }
-    # Training may use every complete row; comparisons need both outputs on identical hours.
-    for split in ("validation", "test"):
-        frames[split] = complete_rows(frames[split], (spec.baseline,))
+    # Training and the refit use every complete row; comparisons need model and baseline on identical hours.
+    frames = {
+        "train": years["train"],
+        "refit": years["train"].unionByName(years["validation"]),
+        "validation": paired(years["validation"], spec),
+        "test": paired(years["test"], spec),
+    }
     frames = {key: value.cache() for key, value in frames.items()}
     try:
-        counts = {key: value.count() for key, value in frames.items()}
+        counts = {key: frames[key].count() for key in ("train", "validation", "test")}
         if counts["train"] < 24 or min(counts["validation"], counts["test"]) < 24:
             raise ValueError(
                 f"Insufficient complete paired hours for {spec.name}: {counts}. Prepare market history first."
             )
-        candidates, selected, best_mae = [], None, float("inf")
-        for family in ("linear", "random_forest"):
-            pipeline = build_pipeline(spec, family)
-            for params in parameter_grid(pipeline, family):
+        candidates, best, best_mae = [], None, float("inf")
+        for family, pipeline, param_maps in candidate_grid(spec, grids):
+            for params in param_maps:
                 fitted = pipeline.fit(frames["train"], params)
                 metrics = evaluate(fitted.transform(frames["validation"]), spec.label, "prediction")
                 record = {
@@ -168,14 +188,13 @@ def train(spark: SparkSession, paths: DataPaths, spec: ModelSpec) -> dict:
                 }
                 candidates.append(record)
                 if metrics["mae"] is not None and metrics["mae"] < best_mae:
-                    best_mae, selected = metrics["mae"], record
-        if selected is None:
+                    best_mae, best = metrics["mae"], (record, pipeline, params)
+        if best is None:
             raise ValueError("No finite validation candidate")
-        pipeline = build_pipeline(spec, selected["model"])
-        estimator = pipeline.getStages()[-1]
-        params = {estimator.getParam(key): value for key, value in selected["parameters"].items()}
-        final = pipeline.fit(frames["train"].unionByName(frames["validation"]), params)
+        selected, pipeline, params = best
+        final = pipeline.fit(frames["refit"], params)
         predictions = final.transform(frames["test"]).cache()
+        target = paths.models / spec.name
         try:
             test = {
                 "model": evaluate(predictions, spec.label, "prediction"),
@@ -183,7 +202,6 @@ def train(spark: SparkSession, paths: DataPaths, spec: ModelSpec) -> dict:
                 "hours": counts["test"],
             }
             weights = feature_weights(final, predictions, "features_raw")
-            target = paths.models / spec.name
             final.write().overwrite().save(str(target / "pipeline"))
             saved_columns = list(
                 dict.fromkeys(
@@ -212,15 +230,18 @@ def train(spark: SparkSession, paths: DataPaths, spec: ModelSpec) -> dict:
             "test": test,
             "features": weights,
             "rows": counts,
+            "refit": {"years": "2021-2025", "hours": frames["refit"].count()},
             "weight_kind": "standardized coefficient" if selected["model"] == "linear" else "tree importance",
             "trained_at": datetime.now(UTC).isoformat(),
             "training_seconds": round(time.perf_counter() - started, 2),
             "interpretation": (
-                "Contemporaneous explanatory estimate, not a day-ahead forecast. "
-                "Baseline is exact UTC t-24h persistence. Results cover available complete hours."
+                "Contemporaneous explanatory estimate, not a day-ahead forecast. Baseline is exact UTC t-24h "
+                "persistence. Selected on 2025, refit on 2021-2025 and evaluated once on 2026."
             ),
         }
-        (target / "metrics.json").write_text(json.dumps(report, indent=2, allow_nan=False), encoding="utf-8")
+        partial = target / "metrics.json.part"
+        partial.write_text(json.dumps(report, indent=2, allow_nan=False), encoding="utf-8")
+        partial.replace(target / "metrics.json")
         return report
     finally:
         for frame in frames.values():
